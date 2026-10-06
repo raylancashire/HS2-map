@@ -55,3 +55,7 @@ Upload all files in this folder to the same directory in the GitHub Pages reposi
 The route layer was revised after checking the official HS2 Queen’s Park and Maida Vale Safeguarding and Property Schemes Zone Map (PH1-HS2-LP-MAP-000-000184, 07/10/2024), particularly page 2 of 3 at 1:7,500. The AP04 alignment through Queen’s Park runs diagonally along/beneath the existing railway corridor, through the Queen’s Park station area and towards Kilburn High Road.
 
 `hs2-route.geojson` is a digitised public-reference trace of that published alignment, not engineering survey geometry. Property distances and the 30 m overlay remain screening aids only.
+
+
+## Queen’s Park tunnel alignment correction (October 2026)
+The Queen’s Park trace was revised after comparison with the official HS2 mapping and the Department for Transport’s February 2026 description of the Euston tunnels. The reference centreline now curves north-east beneath Kensal Green Cemetery, converges on the West Coast Main Line corridor and broadly follows that corridor through Queen’s Park toward Kilburn. The map draws two narrow bore lines around this reference centreline. Their displayed separation is cartographic and must not be treated as engineering or survey geometry. Property distances and the 30 m layer are screening aids only.
