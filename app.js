@@ -1,24 +1,26 @@
-const map=L.map('map').setView([51.5340,-0.2050],15.2);
+const map=L.map('map',{zoomControl:true}).setView([51.5340,-0.2050],15);
 
-// Queen's Park basemap. Use standard OSM first, then CARTO as a genuine fallback.
-// Do not change the map extent in response to a geocode unless it is inside the
-// Queen's Park / north-west Westminster validation box below.
-const osmTiles=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-  subdomains:'abc', maxZoom:19, crossOrigin:true, attribution:'&copy; OpenStreetMap contributors'
-});
-const cartoTiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
-  subdomains:'abcd', maxZoom:20, crossOrigin:true, attribution:'&copy; OpenStreetMap contributors &copy; CARTO'
-});
-let tileErrors=0, baseFallbackStarted=false;
+// OpenStreetMap standard raster tiles. OSMF now specifies this exact host
+// (without a/b/c subdomains) and requires normal browser referrer behaviour.
+const osmTiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19,
+  attribution:'&copy; OpenStreetMap contributors',
+  crossOrigin:false,
+  referrerPolicy:'strict-origin-when-cross-origin'
+}).addTo(map);
+
+let tileErrors=0;
 osmTiles.on('tileerror',()=>{
   tileErrors++;
-  if(tileErrors>=3 && !baseFallbackStarted){
-    baseFallbackStarted=true;
-    if(map.hasLayer(osmTiles)) map.removeLayer(osmTiles);
-    cartoTiles.addTo(map);
+  if(tileErrors===4){
+    const el=document.querySelector('#mapNotice');
+    if(el){el.hidden=false;el.textContent='The street-map tiles are being blocked by the browser/network. Property markers are still available.';}
   }
 });
-osmTiles.addTo(map);
+osmTiles.on('load',()=>{
+  const el=document.querySelector('#mapNotice');
+  if(el)el.hidden=true;
+});
 
 const cfg=window.HS2_MAP_CONFIG||{};
 let routeFeature=null, routeLines=[];
@@ -72,19 +74,30 @@ function fitAll(){const pts=validProperties().map(p=>[+p.latitude,+p.longitude])
 async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=samples.map(x=>({...x}));render();setDataStatus(`Google Sheet could not be loaded: ${err.message} Showing 20 sample properties instead.`,'error')}}
 async function loadRoute(){
   tunnelLayer.clearLayers(); zoneLayer.clearLayers(); routeLines=[];
-  // Official HS2 PC-01-004 raster overlay. Bounds are a calibration layer for visual checking;
-  // no legal/property distance is calculated from a hand-drawn approximation in this build.
-  const bounds=[[51.5196,-0.2297],[51.5448,-0.1748]];
-  const overlay=L.imageOverlay('hs2-official-pc-01-004.jpg',bounds,{opacity:0.45,interactive:false});
-  overlay.addTo(zoneLayer);
-  // Keep the official plan OFF by default. It sits above the street tiles and is
-  // intended only as a reference/calibration layer until its registration is final.
-  if(document.querySelector('#showZone')) document.querySelector('#showZone').checked=false;
-  if(map.hasLayer(zoneLayer)) map.removeLayer(zoneLayer);
-  document.querySelector('#routeStatus').textContent='Official source: HS2 Property Schemes map PC-01-004 (June 2019). The original route-in-tunnel and safeguarded-area symbology are shown as a map overlay. Hand-drawn tunnel geometry has been removed from this build.';
+  try{
+    const res=await fetch('hs2-route.geojson',{cache:'no-store'});
+    if(!res.ok) throw Error('HTTP '+res.status);
+    const fc=await res.json();
+    const route=fc.features.find(f=>f.geometry&&f.geometry.type==='LineString');
+    const zone=fc.features.find(f=>f.geometry&&(f.geometry.type==='Polygon'||f.geometry.type==='MultiPolygon'));
+    if(route){
+      routeFeature=route;
+      routeLines=[route.geometry.coordinates.map(c=>[c[1],c[0]])];
+      L.geoJSON(route,{style:{color:'#555',weight:4,opacity:.95,dashArray:'3 8',lineCap:'round'}}).addTo(tunnelLayer);
+    }
+    if(zone){
+      L.geoJSON(zone,{style:{color:'#1f5f99',weight:2,opacity:.9,fillColor:'#4f91c7',fillOpacity:.22}}).addTo(zoneLayer);
+    }
+    document.querySelector('#showTunnel').checked=true;
+    document.querySelector('#showZone').checked=true;
+    if(!map.hasLayer(tunnelLayer))tunnelLayer.addTo(map);
+    if(!map.hasLayer(zoneLayer))zoneLayer.addTo(map);
+    document.querySelector('#routeStatus').textContent='HS2 route-in-tunnel and sub-surface safeguarded area vectorised from official Property Schemes map PC-01-004 (June 2019) and registered to the live street map. Reference/screening geometry only; not a legal or survey boundary.';
+  }catch(err){
+    document.querySelector('#routeStatus').textContent='HS2 vector layer could not be loaded: '+err.message;
+  }
   render();
 }
-
 document.querySelector('#search').addEventListener('input',render);document.querySelector('#status').addEventListener('change',render);
 document.querySelector('#showTunnel').addEventListener('change',e=>e.target.checked?tunnelLayer.addTo(map):map.removeLayer(tunnelLayer));document.querySelector('#showZone').addEventListener('change',e=>e.target.checked?zoneLayer.addTo(map):map.removeLayer(zoneLayer));document.querySelector('#showHouses').addEventListener('change',e=>e.target.checked?markerLayer.addTo(map):map.removeLayer(markerLayer));
 document.querySelector('#reloadSheet').addEventListener('click',loadGoogleSheet);
@@ -99,6 +112,6 @@ try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&
 document.querySelector('#status').value='all';
 document.querySelector('#search').value='';
 document.querySelector('#showHouses').checked=true;
-document.querySelector('#showTunnel').checked=false;
-document.querySelector('#showZone').checked=false;
+document.querySelector('#showTunnel').checked=true;
+document.querySelector('#showZone').checked=true;
 properties=samples.map(x=>({...x}));render();loadRoute().then(()=>{if(cfg.useGoogleSheet!==false)loadGoogleSheet();else setDataStatus('Google Sheet loading is disabled; showing sample properties.','')});

@@ -2,3 +2,5 @@
 .data-status{padding:10px;margin:0 0 8px;border-radius:6px;background:#eef2f6;color:#334155;font-size:13px}.data-status.ok{background:#e8f5ec;color:#1f653d}.data-status.error{background:#fff1f0;color:#9f2d27}.data-status.loading{background:#eef4fb;color:#234f82}
 
 .property-list{display:grid;gap:6px}.property-row{margin:0;padding:8px 9px;text-align:left;background:#f4f7fa;color:#172033;border:1px solid #d7e0e8}.property-row strong,.property-row span{display:block}.property-row span{font-size:11px;color:#5d6876;margin-top:2px}
+
+.map-notice{position:absolute;z-index:1000;left:50%;top:12px;transform:translateX(-50%);background:#fff3cd;border:1px solid #d6b656;border-radius:5px;padding:8px 12px;max-width:520px;font-size:13px;box-shadow:0 1px 5px #0003}

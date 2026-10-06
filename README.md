@@ -31,3 +31,14 @@ The app is configured to read the first worksheet (gid 0) of spreadsheet `123LEv
 - Official HS2 plan overlay is off by default so it cannot cover the base tiles.
 - Status filter is forced to All properties at startup, avoiding Safari restoring an old filter.
 - Properties remain loaded live from the configured Google Sheet.
+
+
+## Basemap correction (October 2026)
+The basemap uses the OSM Foundation's documented standard raster endpoint `https://tile.openstreetmap.org/{z}/{x}/{y}.png` (no legacy subdomains) and a normal browser referrer policy. CARTO and Esri fallbacks from the diagnostic builds have been removed.
+
+## Georeferenced HS2 vector layers
+This build replaces the misaligned full-page raster overlay with vector reference layers derived from official HS2 Property Schemes map PC-01-004 (June 2019):
+- Route in tunnel (grey dotted line)
+- Safeguarded Area: Sub-surface (blue translucent polygon)
+
+The registration uses identifiable local road/postcode geography so the vectors sit on the live OpenStreetMap rather than displaying the scanned plan as a rectangle. These layers are for screening/reference only and are not legal or survey geometry.
