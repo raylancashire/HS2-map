@@ -53,7 +53,7 @@ async function loadRoute(){try{const res=await fetch('hs2-route.geojson',{cache:
       const up=turf.lineOffset(routeFeature,0.008,{units:'kilometers'});
       const down=turf.lineOffset(routeFeature,-0.008,{units:'kilometers'});
       [up,down].forEach((bore,i)=>L.geoJSON(bore,{style:{color:'#173b72',weight:1.5,opacity:.6}})
-        .bindPopup(`<strong>Indicative ${i===0?'upline':'downline'} bore</strong><br>Shown for orientation only. The dashed red AP04 line is the map reference trace.`).addTo(tunnelLayer));
+        .bindPopup(`<strong>Indicative ${i===0?'upline':'downline'} bore</strong><br>Shown for orientation only. The blue AP04 line is the registered map reference trace.`).addTo(tunnelLayer));
 
       const buffered=turf.buffer(routeFeature,0.03,{units:'kilometers'});
       L.geoJSON(buffered,{style:{color:'#d9485f',weight:1.5,fillColor:'#e87886',fillOpacity:.10,dashArray:'5 5'}})

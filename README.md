@@ -64,3 +64,7 @@ The Queen’s Park trace was revised after comparison with the official HS2 mapp
 ## Route display refinement (6 October 2026)
 
 The route layer now keeps the digitised AP04 reference alignment visible as a thin red dashed line, matching the visual convention used for checking the route against the Queen's Park reference screenshot/source mapping. The two blue bore lines are deliberately thin and semi-transparent and are indicative only. The 30 m overlay remains a screening aid. No numbered route-reference markers are used.
+
+
+## Route registration note
+The Queen’s Park route layer was revised against HS2's 2024 Queen’s Park and Maida Vale safeguarding/property map (PH1-HS2-LP-MAP-000-000184, page 2 of 3, scale 1:7,500). On that official map the solid blue line is the Phase One (AP04) alignment; the red dash-dot lines are the limits of land subject to safeguarding direction. The GeoJSON is a digitised public-reference trace and must not be treated as survey-grade engineering geometry or as a legal property-eligibility boundary.

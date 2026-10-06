@@ -5,101 +5,109 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "HS2 Euston Tunnel \u2013 Queen's Park reference centreline",
-        "source": "HS2 Phase One safeguarding/property mapping and published Euston tunnel alignment descriptions",
-        "status": "digitised-reference",
-        "note": "Public reference trace only; not engineering/survey geometry. The alignment heads north-east beneath Kensal Green Cemetery, converges on the West Coast Main Line corridor and broadly follows it through Queen's Park toward Kilburn."
+        "name": "HS2 Phase One (AP04) alignment \u2013 Queen's Park registered reference trace",
+        "source": "HS2 Queen's Park and Maida Vale safeguarding/property map, Doc PH1-HS2-LP-MAP-000-000184 (07/10/2024), cross-checked against HS2 property/plan mapping",
+        "status": "registered-reference-trace",
+        "note": "Digitised public-reference trace of the solid blue Phase One (AP04) alignment. The red dash-dot lines on the official map are safeguarding limits, not the tunnel centreline. Not survey/engineering geometry."
       },
       "geometry": {
         "type": "LineString",
         "coordinates": [
           [
             -0.231,
-            51.52895
+            51.52755
           ],
           [
-            -0.2288,
-            51.52938
+            -0.229,
+            51.52795
           ],
           [
-            -0.2266,
-            51.5299
+            -0.227,
+            51.52842
           ],
           [
-            -0.2244,
-            51.53048
+            -0.225,
+            51.52892
           ],
           [
-            -0.2222,
-            51.53108
+            -0.223,
+            51.52945
           ],
           [
-            -0.22,
-            51.53167
+            -0.221,
+            51.53002
           ],
           [
-            -0.2178,
-            51.53224
+            -0.219,
+            51.53058
           ],
           [
-            -0.2156,
+            -0.217,
+            51.53115
+          ],
+          [
+            -0.215,
+            51.53172
+          ],
+          [
+            -0.213,
+            51.53225
+          ],
+          [
+            -0.211,
             51.53275
           ],
           [
-            -0.2134,
-            51.53318
-          ],
-          [
-            -0.2112,
-            51.5335
-          ],
-          [
             -0.209,
-            51.53372
+            51.5332
           ],
           [
-            -0.2068,
-            51.53391
+            -0.207,
+            51.5336
           ],
           [
-            -0.2046,
-            51.53412
+            -0.205,
+            51.53398
           ],
           [
-            -0.2024,
-            51.53435
+            -0.203,
+            51.53434
           ],
           [
-            -0.2002,
-            51.53461
+            -0.201,
+            51.5347
           ],
           [
-            -0.198,
-            51.53491
+            -0.199,
+            51.53505
           ],
           [
-            -0.1958,
-            51.53525
+            -0.197,
+            51.53539
           ],
           [
-            -0.1936,
-            51.53562
+            -0.195,
+            51.53572
           ],
           [
-            -0.1914,
-            51.53602
+            -0.193,
+            51.53605
           ],
           [
-            -0.1892,
-            51.53644
+            -0.191,
+            51.53639
+          ],
+          [
+            -0.189,
+            51.53673
           ],
           [
             -0.187,
-            51.53687
+            51.53708
           ],
           [
-            -0.1848,
-            51.53731
+            -0.185,
+            51.53743
           ]
         ]
       }
