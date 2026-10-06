@@ -1,46 +1,35 @@
-# HS2 Queen's Park Property Map – prototype
+# HS2 Queen's Park Property Map
 
-Interactive Leaflet prototype for displaying a custom list of Queen's Park properties against a provisional HS2 tunnel alignment.
+Interactive Leaflet map showing the HS2 Euston Tunnel through Queen's Park and properties maintained in a Google Spreadsheet.
 
-## Google Sheet property source
+## Normal workflow
 
-The map is configured to load this spreadsheet by default:
+1. Edit the configured Google Sheet.
+2. Add/remove/change property rows.
+3. Reload the map (or click **Reload Google Sheet**).
+4. The latest rows are fetched automatically. No GitHub update is needed for routine property changes.
 
-`1DwvQihenTk0z14eVZLwVDFgeO40ghdVA3ojwnQL6ZtY`
+## Google Sheet
 
-The spreadsheet location is stored in **config.js**. If the property list moves later, change only `spreadsheetId` (and `sheetGid` if needed).
+The Sheet ID is stored in `config.js`. If the property list moves to a different spreadsheet, change only `spreadsheetId` (and `sheetGid` if needed).
 
-The worksheet must be publicly readable/published so the GitHub Pages site can retrieve its CSV export without signing in.
+Expected columns: `id,address,postcode,latitude,longitude,notes`. Address, latitude and longitude are currently required. Common header variants are accepted.
 
-### Supported columns
+## HS2 route layer
 
-Required at present:
-- Address
-- Latitude (or Lat)
-- Longitude (or Lng/Lon/Long)
+`hs2-route.geojson` contains the Queen's Park reference alignment. It was manually digitised as a map reference from the official HS2 Phase One **Queen's Park and Maida Vale – Safeguarding and Property Schemes Zone Maps**, document PH1-HS2-LP-MAP-000-000184, dated 07/10/2024. It is not survey-grade geometry.
 
-Optional:
-- ID / Property ID / Ref
-- Postcode
-- Notes / Comments
-
-Header matching is case-insensitive and accepts spaces, underscores and hyphens.
-
-## Fallbacks
-
-- **Reload Google Sheet** refreshes the live property list.
-- **Import CSV instead** loads a local CSV for the current browser session.
-- **Use 20 sample properties** restores the illustrative test records.
-- If the Google Sheet cannot be loaded, the map automatically shows the 20 samples and reports the error.
-
-## Important
-
-The current HS2 tunnel line and visual 30 m corridor are PROVISIONAL prototype geometry only. They must be replaced with verified official HS2 geometry before the map is used to assess real properties or settlement-deed eligibility.
+The app creates a 30 m visual screening buffer with Turf.js and calculates approximate point-to-line distance for each property. HS2 states settlement-deed eligibility relates to properties within 30 metres of relevant excavations; properties beyond 30 m remain protected for HS2-caused damage under the Act. Therefore this website must not describe its calculated result as an official eligibility decision.
 
 ## Files
 
 - `index.html` – page and controls
 - `styles.css` – presentation
-- `app.js` – Leaflet, Sheet/CSV loading, filters and distance calculations
-- `config.js` – replaceable Google Sheet configuration
-- `houses-template.csv` – manual CSV example
+- `config.js` – Google Sheet configuration
+- `app.js` – Sheet loading, map layers, filtering and distance calculations
+- `hs2-route.geojson` – HS2 Queen's Park reference alignment
+- `houses-template.csv` – optional local CSV template
+
+## GitHub Pages
+
+Upload all files in this folder to the same directory in the GitHub Pages repository. After that, routine changes to the property list are made in Google Sheets, not GitHub.

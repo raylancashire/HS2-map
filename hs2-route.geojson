@@ -1,0 +1,31 @@
+{
+  "type": "FeatureCollection",
+  "name": "HS2 Euston Tunnel - Queen's Park reference alignment",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "HS2 Euston Tunnel (Queen's Park section)",
+        "source": "Digitised reference from HS2 Phase One Queen's Park and Maida Vale safeguarding/property map, 7 Oct 2024",
+        "status": "reference-only"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-0.2259,51.5299],
+          [-0.2229,51.5306],
+          [-0.2194,51.5313],
+          [-0.2157,51.5320],
+          [-0.2118,51.5328],
+          [-0.2078,51.5335],
+          [-0.2046,51.5341],
+          [-0.2012,51.5348],
+          [-0.1977,51.5355],
+          [-0.1942,51.5362],
+          [-0.1907,51.5370],
+          [-0.1876,51.5378]
+        ]
+      }
+    }
+  ]
+}
