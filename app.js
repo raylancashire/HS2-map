@@ -4,7 +4,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,att
 const cfg=window.HS2_MAP_CONFIG||{};
 let routeFeature=null, routeLines=[];
 let tunnelLayer=L.layerGroup().addTo(map);
-let zoneLayer=L.layerGroup().addTo(map);
+let zoneLayer=L.layerGroup();
 const markerLayer=L.layerGroup().addTo(map);
 let properties=[];
 
@@ -46,7 +46,7 @@ async function loadRoute(){try{const res=await fetch('hs2-route.geojson',{cache:
       const buffered=turf.buffer(routeFeature,0.03,{units:'kilometers'});
       L.geoJSON(buffered,{style:{color:'#2f6fb3',weight:1,opacity:.55,fillColor:'#7fb3e6',fillOpacity:.13}})
         .bindPopup('<strong>30 m screening zone</strong><br>Approximate 30 m map-screening buffer around the digitised tunnel route. It is not an official HS2 eligibility boundary.').addTo(zoneLayer)
-    }else{L.geoJSON(routeFeature,{style:{color:'#666',weight:4,dashArray:'3 8',lineCap:'round'}}).addTo(tunnelLayer)}document.querySelector('#routeStatus').textContent='Route: two grey dotted tunnel lines traced from the supplied Queen’s Park reference maps (reference trace).';render();fitAll()}catch(err){document.querySelector('#routeStatus').textContent='HS2 route layer could not be loaded: '+err.message}}
+    }else{L.geoJSON(routeFeature,{style:{color:'#666',weight:4,dashArray:'3 8',lineCap:'round'}}).addTo(tunnelLayer)}document.querySelector('#routeStatus').textContent='Route: two grey dotted tunnel lines, south-corrected and cross-checked against the supplied Queen’s Park close-ups (reference trace).';render();fitAll()}catch(err){document.querySelector('#routeStatus').textContent='HS2 route layer could not be loaded: '+err.message}}
 
 document.querySelector('#search').addEventListener('input',render);document.querySelector('#status').addEventListener('change',render);
 document.querySelector('#showTunnel').addEventListener('change',e=>e.target.checked?tunnelLayer.addTo(map):map.removeLayer(tunnelLayer));document.querySelector('#showZone').addEventListener('change',e=>e.target.checked?zoneLayer.addTo(map):map.removeLayer(zoneLayer));document.querySelector('#showHouses').addEventListener('change',e=>e.target.checked?markerLayer.addTo(map):map.removeLayer(markerLayer));

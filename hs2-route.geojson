@@ -1,23 +1,137 @@
 {
   "type": "FeatureCollection",
-  "name": "HS2 Euston Tunnel – Queen's Park grey dotted tunnel lines",
+  "name": "HS2 Euston Tunnel \u2013 Queen's Park grey dotted tunnel lines",
   "features": [
     {
       "type": "Feature",
       "properties": {
-        "name": "HS2 Euston Tunnel – grey dotted tunnel lines",
+        "name": "HS2 Euston Tunnel \u2013 grey dotted tunnel lines",
         "source": "Digitised from the user-supplied Queen's Park HS2 reference screenshots and checked against published HS2 plan/profile mapping.",
-        "status": "user-reference-grey-dotted-two-line-trace-v3",
-        "note": "Reference/screening trace only; not survey or legal geometry."
+        "status": "user-reference-grey-dotted-two-line-trace-v4-south-corrected",
+        "note": "Reference/screening trace only. Both bores translated south by about 61 m after cross-checking the supplied close-ups against Oliphant Street and the Kilburn Lane/Salusbury Road end."
       },
       "geometry": {
         "type": "MultiLineString",
         "coordinates": [
           [
-            [-0.22120,51.52798],[-0.21950,51.52863],[-0.21770,51.52931],[-0.21590,51.52999],[-0.21410,51.53067],[-0.21230,51.53135],[-0.21050,51.53203],[-0.20870,51.53271],[-0.20690,51.53339],[-0.20510,51.53407],[-0.20330,51.53475],[-0.20150,51.53543],[-0.19970,51.53611],[-0.19790,51.53679]
+            [
+              -0.2212,
+              51.52743
+            ],
+            [
+              -0.2195,
+              51.52808
+            ],
+            [
+              -0.2177,
+              51.52876
+            ],
+            [
+              -0.2159,
+              51.52944
+            ],
+            [
+              -0.2141,
+              51.53012
+            ],
+            [
+              -0.2123,
+              51.5308
+            ],
+            [
+              -0.2105,
+              51.53148
+            ],
+            [
+              -0.2087,
+              51.53216
+            ],
+            [
+              -0.2069,
+              51.53284
+            ],
+            [
+              -0.2051,
+              51.53352
+            ],
+            [
+              -0.2033,
+              51.5342
+            ],
+            [
+              -0.2015,
+              51.53488
+            ],
+            [
+              -0.1997,
+              51.53556
+            ],
+            [
+              -0.1979,
+              51.53624
+            ]
           ],
           [
-            [-0.22150,51.52828],[-0.21980,51.52893],[-0.21800,51.52961],[-0.21620,51.53029],[-0.21440,51.53097],[-0.21260,51.53165],[-0.21080,51.53233],[-0.20900,51.53301],[-0.20720,51.53369],[-0.20540,51.53437],[-0.20455,51.53472],[-0.20355,51.53512],[-0.20175,51.53580],[-0.19995,51.53648],[-0.19815,51.53716]
+            [
+              -0.2215,
+              51.52773
+            ],
+            [
+              -0.2198,
+              51.52838
+            ],
+            [
+              -0.218,
+              51.52906
+            ],
+            [
+              -0.2162,
+              51.52974
+            ],
+            [
+              -0.2144,
+              51.53042
+            ],
+            [
+              -0.2126,
+              51.5311
+            ],
+            [
+              -0.2108,
+              51.53178
+            ],
+            [
+              -0.209,
+              51.53246
+            ],
+            [
+              -0.2072,
+              51.53314
+            ],
+            [
+              -0.2054,
+              51.53382
+            ],
+            [
+              -0.20455,
+              51.53417
+            ],
+            [
+              -0.20355,
+              51.53457
+            ],
+            [
+              -0.20175,
+              51.53525
+            ],
+            [
+              -0.19995,
+              51.53593
+            ],
+            [
+              -0.19815,
+              51.53661
+            ]
           ]
         ]
       }

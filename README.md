@@ -88,3 +88,7 @@ The tunnel reference geometry was replaced with a grey dotted line following the
 
 ## Route correction – two grey dotted tunnel lines
 The route layer now contains **two separate grey dotted tunnel traces**. The eastern trace has been positioned so that the second line passes beneath the Kilburn Lane / Salusbury Road (Premier Corner) junction, as shown in the supplied close-up reference. Property distance is calculated to the **nearest** of the two traced tunnel lines. These remain reference/screening traces and are not survey/legal geometry.
+
+
+## v4 south-corrected verification
+Both grey dotted tunnel traces have been moved approximately 61 m south compared with v3. This correction was made after checking the supplied detailed screenshots: the line crosses the Oliphant Street/Kilburn Lane area lower than v3 and the eastern end passes through the Kilburn Lane/Salusbury Road junction area. The 30 m screening overlay is now OFF by default so the two tunnel traces can be compared clearly with the reference map.
