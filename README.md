@@ -1,44 +1,11 @@
-# HS2 Queen's Park property map — official PC-01-004 calibration build
+# HS2 Queen's Park property map – traced tunnel build
 
-This build deliberately removes the earlier hand-drawn tunnel GeoJSON.
+This build keeps the working OpenStreetMap basemap and Google Sheet property loader.
 
-## What changed
-- Uses the user-supplied official HS2 Property Schemes map PC-01-004 (June 2019) as a semi-transparent Leaflet overlay.
-- The source map itself shows **Route in tunnel**, **Limits of Land Subject to Safeguarding Direction**, and **Safeguarded Area: Sub-surface**.
-- Google Sheet property loading and address geocoding are retained.
-- Property-to-tunnel distances are temporarily disabled so the app does not present another inaccurate hand-built alignment.
-- The official overlay can be toggled with the layer checkbox.
+Change in this build:
+- replaces the earlier curved/hand-inferred tunnel line;
+- draws two parallel dotted tunnel bores;
+- calibrates the route to the faint/dashed alignment visible in the supplied `HS2 route map thru Queen's Park.png` extract;
+- keeps the safeguarded-area polygon as a separate reference layer.
 
-## Why this build
-The previous route files were reconstructed from screenshots and were repeatedly too far north. This version makes the official HS2 map the visual reference inside the app before a final vector trace is created.
-
-## Google Sheet
-Configured in `config.js`. Expected columns: `ID`, `Address`, `Postcode`, `Notes`; latitude/longitude remain optional.
-
-## Source
-HS2 Phase One Property Schemes map PC-01-004, document 1LR02-WSP-LP-MAP-C000-100003, June 2019. Scale 1:2,500 at A1 / 1:5,000 at A3.
-
-## Important
-The raster overlay is for calibration/reference and is not a substitute for legal advice or survey-grade HS2 data.
-
-
-## HS2 property Google Sheet
-The app is configured to read the first worksheet (gid 0) of spreadsheet `123LEvGRnlSI9qBPPfcd0Yp2dFW7awVb3Cfi1oGuACrU`. Expected columns: `ID`, `Address`, `Postcode`, `Notes`. Latitude/longitude are not required; missing coordinates are geocoded and cached in the browser.
-
-
-## 2026-10-06 display fix
-- Street map is now the default visible map.
-- Official HS2 plan overlay is off by default so it cannot cover the base tiles.
-- Status filter is forced to All properties at startup, avoiding Safari restoring an old filter.
-- Properties remain loaded live from the configured Google Sheet.
-
-
-## Basemap correction (October 2026)
-The basemap uses the OSM Foundation's documented standard raster endpoint `https://tile.openstreetmap.org/{z}/{x}/{y}.png` (no legacy subdomains) and a normal browser referrer policy. CARTO and Esri fallbacks from the diagnostic builds have been removed.
-
-## Georeferenced HS2 vector layers
-This build replaces the misaligned full-page raster overlay with vector reference layers derived from official HS2 Property Schemes map PC-01-004 (June 2019):
-- Route in tunnel (grey dotted line)
-- Safeguarded Area: Sub-surface (blue translucent polygon)
-
-The registration uses identifiable local road/postcode geography so the vectors sit on the live OpenStreetMap rather than displaying the scanned plan as a rectangle. These layers are for screening/reference only and are not legal or survey geometry.
+The tunnel trace is for screening/reference only and is not legal or survey geometry.
