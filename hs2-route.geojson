@@ -1,14 +1,14 @@
 {
   "type": "FeatureCollection",
-  "name": "HS2 Euston Tunnel \u2013 Queen's Park route reference",
+  "name": "HS2 Euston Tunnel \u2013 Queen's Park grey dotted reference",
   "features": [
     {
       "type": "Feature",
       "properties": {
-        "name": "HS2 Euston Tunnel route \u2013 Queen's Park",
-        "source": "User-supplied official HS2 route plan, cross-checked with HS2 property compensation/safeguarding mapping",
-        "status": "digitised-reference-trace",
-        "note": "Digitised reference trace of the black/white dashed tunnel route shown on the supplied HS2 plan. Intended for local screening/visualisation, not survey or legal use."
+        "name": "HS2 bored tunnel \u2013 Queen's Park",
+        "source": "Trace based on user-supplied HS2/OSM route screenshot; HS2 map conventions cross-checked against official HS2 mapping",
+        "status": "user-reference-grey-dotted-trace",
+        "note": "Reference trace of the grey dotted bored-tunnel line identified by the user. For visual screening only; not survey/legal geometry."
       },
       "geometry": {
         "type": "LineString",

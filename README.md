@@ -76,3 +76,7 @@ The route layer now keeps the digitised AP04 reference alignment visible as a th
 
 ## Route registration note
 The Queen’s Park route layer was revised against HS2's 2024 Queen’s Park and Maida Vale safeguarding/property map (PH1-HS2-LP-MAP-000-000184, page 2 of 3, scale 1:7,500). On that official map the solid blue line is the Phase One (AP04) alignment; the red dash-dot lines are the limits of land subject to safeguarding direction. The GeoJSON is a digitised public-reference trace and must not be treated as survey-grade engineering geometry or as a legal property-eligibility boundary.
+
+
+## October 2026 route correction
+The route layer now represents the **grey dotted bored-tunnel line identified on the user-supplied HS2/OSM map**, not the red dashed overlay and not the existing railway. HS2 mapping conventions were cross-checked against official HS2 material, where bored tunnels are represented with dashed grey/black tunnel symbology depending on the map series. The route remains a screening/reference trace rather than survey or legal geometry.
