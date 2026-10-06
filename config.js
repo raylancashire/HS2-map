@@ -3,5 +3,9 @@ window.HS2_MAP_CONFIG = {
   spreadsheetId: '1DwvQihenTk0z14eVZLwVDFgeO40ghdVA3ojwnQL6ZtY',
   // 0 = first worksheet. If you later need another tab, replace with its numeric gid.
   sheetGid: '0',
-  useGoogleSheet: true
+  useGoogleSheet: true,
+
+  // Address lookup. Kept here so the provider can be changed without editing app.js.
+  geocoderUrl: 'https://nominatim.openstreetmap.org/search',
+  geocodeDelayMs: 1100
 };
