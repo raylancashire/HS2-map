@@ -1,14 +1,14 @@
 {
   "type": "FeatureCollection",
-  "name": "HS2 Euston Tunnel \u2013 Queen's Park grey dotted reference",
+  "name": "HS2 Euston Tunnel \u2013 Queen's Park straight grey dotted reference",
   "features": [
     {
       "type": "Feature",
       "properties": {
-        "name": "HS2 bored tunnel \u2013 Queen's Park",
-        "source": "Trace based on user-supplied HS2/OSM route screenshot; HS2 map conventions cross-checked against official HS2 mapping",
-        "status": "user-reference-grey-dotted-trace",
-        "note": "Reference trace of the grey dotted bored-tunnel line identified by the user. For visual screening only; not survey/legal geometry."
+        "name": "HS2 Euston Tunnel \u2013 Queen's Park straight reference",
+        "source": "Straight trace based on the grey dotted tunnel line visible in the user-supplied detailed HS2/OSM screenshots; official HS2 material cross-checked for tunnel context.",
+        "status": "user-reference-grey-dotted-straight-trace",
+        "note": "Straight reference trace of the grey dotted tunnel line identified by the user. For visual/property screening only; not survey/legal geometry."
       },
       "geometry": {
         "type": "LineString",
@@ -16,58 +16,6 @@
           [
             -0.2192,
             51.53095
-          ],
-          [
-            -0.2172,
-            51.53122
-          ],
-          [
-            -0.2152,
-            51.5316
-          ],
-          [
-            -0.21393,
-            51.53203
-          ],
-          [
-            -0.21311,
-            51.53199
-          ],
-          [
-            -0.21164,
-            51.53141
-          ],
-          [
-            -0.21039,
-            51.53176
-          ],
-          [
-            -0.20804,
-            51.5326
-          ],
-          [
-            -0.20711,
-            51.53267
-          ],
-          [
-            -0.20574,
-            51.53304
-          ],
-          [
-            -0.20499,
-            51.53278
-          ],
-          [
-            -0.20428,
-            51.5329
-          ],
-          [
-            -0.2029,
-            51.53318
-          ],
-          [
-            -0.2014,
-            51.53342
           ],
           [
             -0.1998,

@@ -80,3 +80,8 @@ The Queen’s Park route layer was revised against HS2's 2024 Queen’s Park and
 
 ## October 2026 route correction
 The route layer now represents the **grey dotted bored-tunnel line identified on the user-supplied HS2/OSM map**, not the red dashed overlay and not the existing railway. HS2 mapping conventions were cross-checked against official HS2 material, where bored tunnels are represented with dashed grey/black tunnel symbology depending on the map series. The route remains a screening/reference trace rather than survey or legal geometry.
+
+
+## 6 October 2026 – straight tunnel trace correction
+
+The tunnel reference geometry was replaced with a single straight line following the grey dotted tunnel feature identified in the supplied close-up map. The previous road-following/bent geometry is superseded. Property distances and the 30 m screening buffer are now calculated from this straight reference line. This remains a visual screening trace, not survey-grade or legal HS2 geometry.
