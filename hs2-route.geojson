@@ -1,25 +1,65 @@
 {
   "type": "FeatureCollection",
-  "name": "HS2 Euston Tunnel \u2013 Queen's Park straight grey dotted reference",
+  "name": "HS2 Euston Tunnel \u2013 Queen's Park grey dotted trace",
   "features": [
     {
       "type": "Feature",
       "properties": {
-        "name": "HS2 Euston Tunnel \u2013 Queen's Park straight reference",
-        "source": "Straight trace based on the grey dotted tunnel line visible in the user-supplied detailed HS2/OSM screenshots; official HS2 material cross-checked for tunnel context.",
-        "status": "user-reference-grey-dotted-straight-trace",
-        "note": "Straight reference trace of the grey dotted tunnel line identified by the user. For visual/property screening only; not survey/legal geometry."
+        "name": "HS2 Euston Tunnel \u2013 Queen's Park grey dotted trace",
+        "source": "Trace aligned to the grey dotted tunnel line identified in the user-supplied Queen\u2019s Park screenshots, cross-checked against HS2 London plan/profile sheets 8\u201310.",
+        "status": "user-reference-grey-dotted-trace-v2",
+        "note": "Reference/screening trace, not survey or legal geometry."
       },
       "geometry": {
         "type": "LineString",
         "coordinates": [
           [
-            -0.2192,
-            51.53095
+            -0.2212,
+            51.52798
           ],
           [
-            -0.1998,
-            51.53362
+            -0.2195,
+            51.52863
+          ],
+          [
+            -0.2177,
+            51.52931
+          ],
+          [
+            -0.2159,
+            51.52999
+          ],
+          [
+            -0.2141,
+            51.53067
+          ],
+          [
+            -0.2123,
+            51.53135
+          ],
+          [
+            -0.2105,
+            51.53203
+          ],
+          [
+            -0.2087,
+            51.53271
+          ],
+          [
+            -0.2069,
+            51.53339
+          ],
+          [
+            -0.2051,
+            51.53407
+          ],
+          [
+            -0.2033,
+            51.53475
+          ],
+          [
+            -0.2015,
+            51.53543
           ]
         ]
       }

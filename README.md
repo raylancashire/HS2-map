@@ -84,4 +84,4 @@ The route layer now represents the **grey dotted bored-tunnel line identified on
 
 ## 6 October 2026 – straight tunnel trace correction
 
-The tunnel reference geometry was replaced with a single straight line following the grey dotted tunnel feature identified in the supplied close-up map. The previous road-following/bent geometry is superseded. Property distances and the 30 m screening buffer are now calculated from this straight reference line. This remains a visual screening trace, not survey-grade or legal HS2 geometry.
+The tunnel reference geometry was replaced with a grey dotted line following the grey dotted tunnel feature identified in the supplied close-up map. The previous road-following/bent geometry is superseded. Property distances and the 30 m screening buffer are now calculated from this straight reference line. This remains a visual screening trace, not survey-grade or legal HS2 geometry.
