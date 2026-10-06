@@ -41,17 +41,25 @@ function sheetCsvUrl(){return cfg.spreadsheetId?`https://docs.google.com/spreads
 function fitAll(){const pts=validProperties().map(p=>[+p.latitude,+p.longitude]);routeCoords.forEach(p=>pts.push(p));if(pts.length)map.fitBounds(pts,{padding:[35,35],maxZoom:16})}
 async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=samples.map(x=>({...x}));render();setDataStatus(`Google Sheet could not be loaded: ${err.message} Showing 20 sample properties instead.`,'error')}}
 async function loadRoute(){try{const res=await fetch('hs2-route.geojson',{cache:'no-store'});if(!res.ok)throw Error(`HTTP ${res.status}`);const gj=await res.json();routeFeature=gj.features[0];routeCoords=routeFeature.geometry.coordinates.map(c=>[c[1],c[0]]);tunnelLayer.clearLayers();zoneLayer.clearLayers();if(window.turf){
-      // Display the two bored tunnels as separate, narrow lines.  The 8 m offsets are
-      // a cartographic representation around the reference centreline, not survey geometry.
+      // The dashed red line is the digitised AP04 reference alignment visible on
+      // the official Queen's Park / Maida Vale safeguarding map. Keep it visible
+      // so the trace can be checked street-by-street against the source map.
+      L.geoJSON(gj,{style:{color:'#d83a4e',weight:2.5,opacity:.95,dashArray:'8 6'}})
+        .bindPopup('<strong>HS2 AP04 reference alignment</strong><br>Digitised from the published Queen’s Park / Maida Vale map. Reference geometry only; not survey data.')
+        .addTo(tunnelLayer);
+
+      // Twin bores are deliberately subtle: their exact separation here is only
+      // cartographic and must not be interpreted as engineering geometry.
       const up=turf.lineOffset(routeFeature,0.008,{units:'kilometers'});
       const down=turf.lineOffset(routeFeature,-0.008,{units:'kilometers'});
-      [up,down].forEach((bore,i)=>L.geoJSON(bore,{style:{color:'#173b72',weight:3,opacity:.95}})
-        .bindPopup(`<strong>HS2 Euston Tunnel – ${i===0?'Upline':'Downline'}</strong><br>Cartographic bore trace based on the published Queen’s Park alignment. Not engineering/survey geometry.`).addTo(tunnelLayer));
+      [up,down].forEach((bore,i)=>L.geoJSON(bore,{style:{color:'#173b72',weight:1.5,opacity:.6}})
+        .bindPopup(`<strong>Indicative ${i===0?'upline':'downline'} bore</strong><br>Shown for orientation only. The dashed red AP04 line is the map reference trace.`).addTo(tunnelLayer));
+
       const buffered=turf.buffer(routeFeature,0.03,{units:'kilometers'});
-      L.geoJSON(buffered,{style:{color:'#d9485f',weight:2,fillColor:'#e87886',fillOpacity:.14,dashArray:'7 5'}})
+      L.geoJSON(buffered,{style:{color:'#d9485f',weight:1.5,fillColor:'#e87886',fillOpacity:.10,dashArray:'5 5'}})
         .bindPopup('<strong>30 m screening zone</strong><br>Approximate map-screening buffer around the reference alignment. It is not an official HS2 eligibility boundary.').addTo(zoneLayer)
     }else{
-      L.geoJSON(gj,{style:{color:'#173b72',weight:3,opacity:.95}}).bindPopup('<strong>HS2 Euston Tunnel</strong><br>Queen’s Park reference alignment.').addTo(tunnelLayer)
+      L.geoJSON(gj,{style:{color:'#d83a4e',weight:2.5,opacity:.95,dashArray:'8 6'}}).bindPopup('<strong>HS2 AP04 reference alignment</strong><br>Queen’s Park reference trace.').addTo(tunnelLayer)
     }render();fitAll()}catch(err){document.querySelector('#routeStatus').textContent='HS2 route layer could not be loaded: '+err.message}}
 
 document.querySelector('#search').addEventListener('input',render);document.querySelector('#status').addEventListener('change',render);

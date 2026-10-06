@@ -59,3 +59,8 @@ The route layer was revised after checking the official HS2 Queen’s Park and M
 
 ## Queen’s Park tunnel alignment correction (October 2026)
 The Queen’s Park trace was revised after comparison with the official HS2 mapping and the Department for Transport’s February 2026 description of the Euston tunnels. The reference centreline now curves north-east beneath Kensal Green Cemetery, converges on the West Coast Main Line corridor and broadly follows that corridor through Queen’s Park toward Kilburn. The map draws two narrow bore lines around this reference centreline. Their displayed separation is cartographic and must not be treated as engineering or survey geometry. Property distances and the 30 m layer are screening aids only.
+
+
+## Route display refinement (6 October 2026)
+
+The route layer now keeps the digitised AP04 reference alignment visible as a thin red dashed line, matching the visual convention used for checking the route against the Queen's Park reference screenshot/source mapping. The two blue bore lines are deliberately thin and semi-transparent and are indicative only. The 30 m overlay remains a screening aid. No numbered route-reference markers are used.
