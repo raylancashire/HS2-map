@@ -1,22 +1,24 @@
 const map=L.map('map').setView([51.5340,-0.2050],15.2);
 
-// Use a second independent raster service as the default because some Safari/GitHub
-// Pages combinations have intermittently failed to paint the standard OSM tile host.
-// If it fails, automatically fall back to the standard OpenStreetMap tiles.
-const esriTiles=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{
-  maxZoom:19, attribution:'Tiles &copy; Esri'
+// Queen's Park basemap. Use standard OSM first, then CARTO as a genuine fallback.
+// Do not change the map extent in response to a geocode unless it is inside the
+// Queen's Park / north-west Westminster validation box below.
+const osmTiles=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  subdomains:'abc', maxZoom:19, crossOrigin:true, attribution:'&copy; OpenStreetMap contributors'
 });
-const osmTiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
-  maxZoom:19, attribution:'&copy; OpenStreetMap contributors'
+const cartoTiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+  subdomains:'abcd', maxZoom:20, crossOrigin:true, attribution:'&copy; OpenStreetMap contributors &copy; CARTO'
 });
-let baseFallbackStarted=false;
-esriTiles.on('tileerror',()=>{
-  if(baseFallbackStarted)return;
-  baseFallbackStarted=true;
-  if(map.hasLayer(esriTiles)) map.removeLayer(esriTiles);
-  osmTiles.addTo(map);
+let tileErrors=0, baseFallbackStarted=false;
+osmTiles.on('tileerror',()=>{
+  tileErrors++;
+  if(tileErrors>=3 && !baseFallbackStarted){
+    baseFallbackStarted=true;
+    if(map.hasLayer(osmTiles)) map.removeLayer(osmTiles);
+    cartoTiles.addTo(map);
+  }
 });
-esriTiles.addTo(map);
+osmTiles.addTo(map);
 
 const cfg=window.HS2_MAP_CONFIG||{};
 let routeFeature=null, routeLines=[];
@@ -39,31 +41,34 @@ function pointSegDist(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,den=dx*dx+dy*dy;let t=d
 function tunnelDistance(lat,lon){if(!routeLines.length)return NaN;const ref=lat,p=toXY(lat,lon,ref);let d=Infinity;routeLines.forEach(line=>{for(let i=0;i<line.length-1;i++){const a=line[i],b=line[i+1];d=Math.min(d,pointSegDist(p,toXY(a[0],a[1],ref),toXY(b[0],b[1],ref)))}});return d}
 function classify(d){return d<=8?'very-close':d<=30?'within-30':'outside-30'}
 function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}">${esc(p.id)}</span>`,iconSize:[28,28],iconAnchor:[14,14]})}
-function render(){markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;let visible=0;properties.forEach(p=>{if(!(Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)))return;p.distance=NaN;p.status='outside-30';const text=`${p.id} ${p.address} ${p.postcode||''}`.toLowerCase();if((q&&!text.includes(q))||(filter!=='all'&&p.status!==filter))return;visible++;const m=L.marker([+p.latitude,+p.longitude],{icon:iconFor(p)}).addTo(markerLayer);m.bindTooltip(p.address);m.on('click',()=>showDetails(p))});const counts={very:properties.filter(p=>p.status==='very-close').length,within:properties.filter(p=>p.status==='within-30').length,out:properties.filter(p=>p.status==='outside-30').length};document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Very close: ${counts.very} · Within 30 m: ${counts.within} · Outside: ${counts.out}`; renderPropertyList(q,filter)}
+function render(){markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;let visible=0;properties.forEach(p=>{if(!isLocalCoordinate(p.latitude,p.longitude))return;p.distance=NaN;p.status='outside-30';const text=`${p.id} ${p.address} ${p.postcode||''}`.toLowerCase();if((q&&!text.includes(q))||(filter!=='all'&&p.status!==filter))return;visible++;const m=L.marker([+p.latitude,+p.longitude],{icon:iconFor(p)}).addTo(markerLayer);m.bindTooltip(p.address);m.on('click',()=>showDetails(p))});const counts={very:properties.filter(p=>p.status==='very-close').length,within:properties.filter(p=>p.status==='within-30').length,out:properties.filter(p=>p.status==='outside-30').length};document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Very close: ${counts.very} · Within 30 m: ${counts.within} · Outside: ${counts.out}`; renderPropertyList(q,filter)}
 
 function renderPropertyList(q='',filter='all'){
   const el=document.querySelector('#propertyList'); if(!el)return;
   const rows=properties.filter(p=>{const text=`${p.id} ${p.address} ${p.postcode||''}`.toLowerCase();return (!q||text.includes(q))&&(filter==='all'||p.status===filter)});
   el.innerHTML=rows.map((p,i)=>`<button class="property-row" data-i="${properties.indexOf(p)}"><strong>${esc(p.address)}</strong><span>${esc(p.postcode||'')}${p.id?' · ID '+esc(p.id):''}</span></button>`).join('');
-  el.querySelectorAll('.property-row').forEach(b=>b.addEventListener('click',()=>{const p=properties[+b.dataset.i]; if(Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)){map.setView([+p.latitude,+p.longitude],18); showDetails(p)}}));
+  el.querySelectorAll('.property-row').forEach(b=>b.addEventListener('click',()=>{const p=properties[+b.dataset.i]; if(isLocalCoordinate(p.latitude,p.longitude)){map.setView([+p.latitude,+p.longitude],18); showDetails(p)}}));
 }
 
 function showDetails(p){document.querySelector('#details').innerHTML=`<h2>Selected property</h2><p><strong>${esc(p.address)}</strong></p><p>ID: ${esc(p.id)}${p.postcode?` · ${esc(p.postcode)}`:''}</p><p>Distance to tunnel: <strong>not calculated in this official-overlay calibration build</strong></p><p>Status: <strong>${p.status==='very-close'?'Very close / above':p.status==='within-30'?'Within 30 m':'Outside 30 m'}</strong></p><p>${esc(p.notes||'')}</p><p class="hint">The official HS2 map overlay is being used for calibration. No hand-drawn distance result is presented in this build.</p>`}
 function splitCSV(line){let out=[],v='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(q&&line[i+1]==='"'){v+='"';i++}else q=!q}else if(c===','&&!q){out.push(v.trim());v=''}else v+=c}out.push(v.trim());return out}
 function normaliseHeader(x){return String(x||'').toLowerCase().trim().replace(/[ _-]+/g,'')}
 function parseCSV(text){const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)throw Error('The sheet has no data rows.');const raw=splitCSV(lines[0]);const aliases={id:['id','propertyid','ref','reference'],address:['address','propertyaddress','houseaddress'],postcode:['postcode','postalcode','zip'],latitude:['latitude','lat'],longitude:['longitude','lng','lon','long'],notes:['notes','note','comments','comment']};const idx={};raw.forEach((h,i)=>{const n=normaliseHeader(h);for(const [key,vals] of Object.entries(aliases))if(vals.includes(n))idx[key]=i});if(idx.address===undefined)throw Error('Missing required column: Address.');const rows=[];lines.slice(1).forEach((line,i)=>{const a=splitCSV(line);if(!a.some(Boolean))return;const get=k=>idx[k]===undefined?'':(a[idx[k]]??'').trim();if(!get('address'))return;const lat=parseFloat(get('latitude')),lon=parseFloat(get('longitude'));rows.push({id:get('id')||String(rows.length+1).padStart(2,'0'),address:get('address'),postcode:get('postcode'),latitude:Number.isFinite(lat)?lat:null,longitude:Number.isFinite(lon)?lon:null,notes:get('notes'),rowNumber:i+2})});if(!rows.length)throw Error('No usable property rows were found.');return rows}
-function cacheKey(p){return 'hs2qp:geocode:'+String(p.address+' '+(p.postcode||'')).toLowerCase().replace(/\s+/g,' ').trim()}
-function readGeocodeCache(p){try{const v=JSON.parse(localStorage.getItem(cacheKey(p)));if(v&&Number.isFinite(v.lat)&&Number.isFinite(v.lon)){p.latitude=v.lat;p.longitude=v.lon;return true}}catch(e){}return false}
+const GEOCODE_CACHE_VERSION='v3';
+const QP_BOUNDS={south:51.515,north:51.555,west:-0.245,east:-0.165};
+function isLocalCoordinate(lat,lon){lat=+lat;lon=+lon;return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=QP_BOUNDS.south&&lat<=QP_BOUNDS.north&&lon>=QP_BOUNDS.west&&lon<=QP_BOUNDS.east}
+function cacheKey(p){return 'hs2qp:geocode:'+GEOCODE_CACHE_VERSION+':'+String(p.address+' '+(p.postcode||'')).toLowerCase().replace(/\s+/g,' ').trim()}
+function readGeocodeCache(p){try{const v=JSON.parse(localStorage.getItem(cacheKey(p)));if(v&&isLocalCoordinate(v.lat,v.lon)){p.latitude=v.lat;p.longitude=v.lon;return true}}catch(e){}return false}
 function saveGeocodeCache(p){try{localStorage.setItem(cacheKey(p),JSON.stringify({lat:+p.latitude,lon:+p.longitude,display:p.geocodeDisplay||'',saved:Date.now()}))}catch(e){}}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function geocodeOne(p){const query=[p.address,p.postcode,'London','UK'].filter(Boolean).join(', ');const base=cfg.geocoderUrl||'https://nominatim.openstreetmap.org/search';const url=base+'?format=jsonv2&limit=1&countrycodes=gb&q='+encodeURIComponent(query);const res=await fetch(url,{headers:{'Accept':'application/json'}});if(!res.ok)throw Error('Geocoder HTTP '+res.status);const data=await res.json();if(!data.length)return false;const lat=Number(data[0].lat),lon=Number(data[0].lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))return false;p.latitude=lat;p.longitude=lon;p.geocodeDisplay=data[0].display_name||'';saveGeocodeCache(p);return true}
-async function resolveMissingCoordinates(rows){const missing=rows.filter(p=>!(Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)));missing.forEach(readGeocodeCache);const todo=missing.filter(p=>!(Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)));if(!todo.length)return {resolved:missing.length,failed:[]};const failed=[];for(let i=0;i<todo.length;i++){const p=todo[i];setDataStatus(`Locating address ${i+1} of ${todo.length}: ${p.address}${p.postcode?' · '+p.postcode:''}…`,'loading');try{if(!await geocodeOne(p))failed.push(p)}catch(e){failed.push(p)}if(i<todo.length-1)await sleep(Math.max(1100,cfg.geocodeDelayMs||1100))}return {resolved:missing.length-failed.length,failed}}
-function validProperties(){return properties.filter(p=>Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude))}
+async function geocodeOne(p){const query=[p.address,p.postcode,'London','UK'].filter(Boolean).join(', ');const base=cfg.geocoderUrl||'https://nominatim.openstreetmap.org/search';const url=base+'?format=jsonv2&limit=1&countrycodes=gb&q='+encodeURIComponent(query);const res=await fetch(url,{headers:{'Accept':'application/json'}});if(!res.ok)throw Error('Geocoder HTTP '+res.status);const data=await res.json();if(!data.length)return false;const lat=Number(data[0].lat),lon=Number(data[0].lon);if(!isLocalCoordinate(lat,lon))return false;p.latitude=lat;p.longitude=lon;p.geocodeDisplay=data[0].display_name||'';saveGeocodeCache(p);return true}
+async function resolveMissingCoordinates(rows){const missing=rows.filter(p=>!isLocalCoordinate(p.latitude,p.longitude));missing.forEach(readGeocodeCache);const todo=missing.filter(p=>!isLocalCoordinate(p.latitude,p.longitude));if(!todo.length)return {resolved:missing.length,failed:[]};const failed=[];for(let i=0;i<todo.length;i++){const p=todo[i];setDataStatus(`Locating address ${i+1} of ${todo.length}: ${p.address}${p.postcode?' · '+p.postcode:''}…`,'loading');try{if(!await geocodeOne(p))failed.push(p)}catch(e){failed.push(p)}if(i<todo.length-1)await sleep(Math.max(1100,cfg.geocodeDelayMs||1100))}return {resolved:missing.length-failed.length,failed}}
+function validProperties(){return properties.filter(p=>isLocalCoordinate(p.latitude,p.longitude))}
 function showUnresolved(failed){const el=document.querySelector('#unresolved');if(!failed.length){el.innerHTML='';return}el.innerHTML=`<details open><summary>${failed.length} address${failed.length===1?'':'es'} could not be located</summary><ul>${failed.map(p=>`<li>${esc(p.address)}${p.postcode?' · '+esc(p.postcode):''}</li>`).join('')}</ul><p class=\"hint\">Check the spelling/postcode in the Google Sheet, then click Reload Google Sheet.</p></details>`}
 
 function setDataStatus(message,kind=''){const el=document.querySelector('#dataStatus');el.textContent=message;el.className='data-status '+kind}
 function sheetCsvUrl(){return cfg.spreadsheetId?`https://docs.google.com/spreadsheets/d/${encodeURIComponent(cfg.spreadsheetId)}/export?format=csv&gid=${encodeURIComponent(cfg.sheetGid||'0')}`:''}
-function fitAll(){const pts=validProperties().map(p=>[+p.latitude,+p.longitude]);routeLines.forEach(line=>line.forEach(p=>pts.push(p)));if(pts.length)map.fitBounds(pts,{padding:[35,35],maxZoom:16})}
+function fitAll(){const pts=validProperties().map(p=>[+p.latitude,+p.longitude]);if(pts.length===1)map.setView(pts[0],17);else if(pts.length>1)map.fitBounds(pts,{padding:[60,60],maxZoom:17});else map.setView([51.5340,-0.2050],15.2);setTimeout(()=>map.invalidateSize(true),50)}
 async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=samples.map(x=>({...x}));render();setDataStatus(`Google Sheet could not be loaded: ${err.message} Showing 20 sample properties instead.`,'error')}}
 async function loadRoute(){
   tunnelLayer.clearLayers(); zoneLayer.clearLayers(); routeLines=[];
@@ -87,6 +92,10 @@ document.querySelector('#restore').addEventListener('click',()=>{properties=samp
 document.querySelector('#csvFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{properties=parseCSV(await f.text());const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from local CSV · ${validProperties().length} located.`,'ok')}catch(err){alert('Could not import CSV: '+err.message);e.target.value=''}});
 // Browsers can restore old form selections after a GitHub Pages refresh. Force a
 // predictable startup state so newly loaded properties are never hidden.
+
+// One-time cleanup of caches from the earlier prototype, which could contain
+// results for placeholder addresses. Versioned v3 entries are retained.
+try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&k.startsWith('hs2qp:geocode:')&&!k.startsWith('hs2qp:geocode:'+GEOCODE_CACHE_VERSION+':'))localStorage.removeItem(k)}}catch(e){}
 document.querySelector('#status').value='all';
 document.querySelector('#search').value='';
 document.querySelector('#showHouses').checked=true;
