@@ -1,113 +1,77 @@
 {
   "type": "FeatureCollection",
-  "name": "HS2 Euston Tunnel \u2013 Queen's Park reference alignment",
+  "name": "HS2 Euston Tunnel \u2013 Queen's Park route reference",
   "features": [
     {
       "type": "Feature",
       "properties": {
-        "name": "HS2 Phase One (AP04) alignment \u2013 Queen's Park registered reference trace",
-        "source": "HS2 Queen's Park and Maida Vale safeguarding/property map, Doc PH1-HS2-LP-MAP-000-000184 (07/10/2024), cross-checked against HS2 property/plan mapping",
-        "status": "registered-reference-trace",
-        "note": "Digitised public-reference trace of the solid blue Phase One (AP04) alignment. The red dash-dot lines on the official map are safeguarding limits, not the tunnel centreline. Not survey/engineering geometry."
+        "name": "HS2 Euston Tunnel route \u2013 Queen's Park",
+        "source": "User-supplied official HS2 route plan, cross-checked with HS2 property compensation/safeguarding mapping",
+        "status": "digitised-reference-trace",
+        "note": "Digitised reference trace of the black/white dashed tunnel route shown on the supplied HS2 plan. Intended for local screening/visualisation, not survey or legal use."
       },
       "geometry": {
         "type": "LineString",
         "coordinates": [
           [
-            -0.231,
-            51.52755
+            -0.2192,
+            51.53095
           ],
           [
-            -0.229,
-            51.52795
+            -0.2172,
+            51.53122
           ],
           [
-            -0.227,
-            51.52842
+            -0.2152,
+            51.5316
           ],
           [
-            -0.225,
-            51.52892
+            -0.21393,
+            51.53203
           ],
           [
-            -0.223,
-            51.52945
+            -0.21311,
+            51.53199
           ],
           [
-            -0.221,
-            51.53002
+            -0.21164,
+            51.53141
           ],
           [
-            -0.219,
-            51.53058
+            -0.21039,
+            51.53176
           ],
           [
-            -0.217,
-            51.53115
+            -0.20804,
+            51.5326
           ],
           [
-            -0.215,
-            51.53172
+            -0.20711,
+            51.53267
           ],
           [
-            -0.213,
-            51.53225
+            -0.20574,
+            51.53304
           ],
           [
-            -0.211,
-            51.53275
+            -0.20499,
+            51.53278
           ],
           [
-            -0.209,
-            51.5332
+            -0.20428,
+            51.5329
           ],
           [
-            -0.207,
-            51.5336
+            -0.2029,
+            51.53318
           ],
           [
-            -0.205,
-            51.53398
+            -0.2014,
+            51.53342
           ],
           [
-            -0.203,
-            51.53434
-          ],
-          [
-            -0.201,
-            51.5347
-          ],
-          [
-            -0.199,
-            51.53505
-          ],
-          [
-            -0.197,
-            51.53539
-          ],
-          [
-            -0.195,
-            51.53572
-          ],
-          [
-            -0.193,
-            51.53605
-          ],
-          [
-            -0.191,
-            51.53639
-          ],
-          [
-            -0.189,
-            51.53673
-          ],
-          [
-            -0.187,
-            51.53708
-          ],
-          [
-            -0.185,
-            51.53743
+            -0.1998,
+            51.53362
           ]
         ]
       }

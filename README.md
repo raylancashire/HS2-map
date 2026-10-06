@@ -1,3 +1,11 @@
+# Corrected Queen’s Park tunnel-route version
+
+This version replaces the earlier approximate railway-corridor alignment. The route is digitised from the black/white dashed Euston Tunnel line on the supplied official HS2 Queen’s Park plan and follows the Kilburn Lane corridor south of Queen’s Park Station. It is a reference trace, not survey-grade geometry.
+
+The Google Sheet remains the live property source: edit the Sheet to add/remove properties without editing GitHub. Address and Postcode are sufficient; Latitude/Longitude remain optional.
+
+---
+
 # HS2 Queen's Park Property Map
 
 Interactive Leaflet map showing the HS2 Euston Tunnel through Queen's Park and properties maintained in a Google Spreadsheet.
