@@ -24,3 +24,10 @@ The raster overlay is for calibration/reference and is not a substitute for lega
 
 ## HS2 property Google Sheet
 The app is configured to read the first worksheet (gid 0) of spreadsheet `123LEvGRnlSI9qBPPfcd0Yp2dFW7awVb3Cfi1oGuACrU`. Expected columns: `ID`, `Address`, `Postcode`, `Notes`. Latitude/longitude are not required; missing coordinates are geocoded and cached in the browser.
+
+
+## 2026-10-06 display fix
+- Street map is now the default visible map.
+- Official HS2 plan overlay is off by default so it cannot cover the base tiles.
+- Status filter is forced to All properties at startup, avoiding Safari restoring an old filter.
+- Properties remain loaded live from the configured Google Sheet.

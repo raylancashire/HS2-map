@@ -45,10 +45,12 @@ async function loadRoute(){
   // Official HS2 PC-01-004 raster overlay. Bounds are a calibration layer for visual checking;
   // no legal/property distance is calculated from a hand-drawn approximation in this build.
   const bounds=[[51.5196,-0.2297],[51.5448,-0.1748]];
-  const overlay=L.imageOverlay('hs2-official-pc-01-004.jpg',bounds,{opacity:0.62,interactive:false});
+  const overlay=L.imageOverlay('hs2-official-pc-01-004.jpg',bounds,{opacity:0.45,interactive:false});
   overlay.addTo(zoneLayer);
-  if(document.querySelector('#showZone')) document.querySelector('#showZone').checked=true;
-  if(!map.hasLayer(zoneLayer)) zoneLayer.addTo(map);
+  // Keep the official plan OFF by default. It sits above the street tiles and is
+  // intended only as a reference/calibration layer until its registration is final.
+  if(document.querySelector('#showZone')) document.querySelector('#showZone').checked=false;
+  if(map.hasLayer(zoneLayer)) map.removeLayer(zoneLayer);
   document.querySelector('#routeStatus').textContent='Official source: HS2 Property Schemes map PC-01-004 (June 2019). The original route-in-tunnel and safeguarded-area symbology are shown as a map overlay. Hand-drawn tunnel geometry has been removed from this build.';
   render();
 }
@@ -58,4 +60,11 @@ document.querySelector('#showTunnel').addEventListener('change',e=>e.target.chec
 document.querySelector('#reloadSheet').addEventListener('click',loadGoogleSheet);
 document.querySelector('#restore').addEventListener('click',()=>{properties=samples.map(x=>({...x}));document.querySelector('#csvFile').value='';render();fitAll();setDataStatus('Showing 20 sample properties.','')});
 document.querySelector('#csvFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{properties=parseCSV(await f.text());const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from local CSV · ${validProperties().length} located.`,'ok')}catch(err){alert('Could not import CSV: '+err.message);e.target.value=''}});
+// Browsers can restore old form selections after a GitHub Pages refresh. Force a
+// predictable startup state so newly loaded properties are never hidden.
+document.querySelector('#status').value='all';
+document.querySelector('#search').value='';
+document.querySelector('#showHouses').checked=true;
+document.querySelector('#showTunnel').checked=false;
+document.querySelector('#showZone').checked=false;
 properties=samples.map(x=>({...x}));render();loadRoute().then(()=>{if(cfg.useGoogleSheet!==false)loadGoogleSheet();else setDataStatus('Google Sheet loading is disabled; showing sample properties.','')});
