@@ -49,3 +49,9 @@ The app creates a 30 m visual screening buffer with Turf.js and calculates appro
 ## GitHub Pages
 
 Upload all files in this folder to the same directory in the GitHub Pages repository. After that, routine changes to the property list are made in Google Sheets, not GitHub.
+
+
+## Route correction – Queen’s Park railway corridor
+The route layer was revised after checking the official HS2 Queen’s Park and Maida Vale Safeguarding and Property Schemes Zone Map (PH1-HS2-LP-MAP-000-000184, 07/10/2024), particularly page 2 of 3 at 1:7,500. The AP04 alignment through Queen’s Park runs diagonally along/beneath the existing railway corridor, through the Queen’s Park station area and towards Kilburn High Road.
+
+`hs2-route.geojson` is a digitised public-reference trace of that published alignment, not engineering survey geometry. Property distances and the 30 m overlay remain screening aids only.

@@ -1,29 +1,66 @@
 {
   "type": "FeatureCollection",
-  "name": "HS2 Euston Tunnel - Queen's Park reference alignment",
+  "name": "HS2 Phase One AP04 alignment - Queen's Park reference",
   "features": [
     {
       "type": "Feature",
       "properties": {
-        "name": "HS2 Euston Tunnel (Queen's Park section)",
-        "source": "Digitised reference from HS2 Phase One Queen's Park and Maida Vale safeguarding/property map, 7 Oct 2024",
-        "status": "reference-only"
+        "name": "HS2 Phase One (AP04 Alignment) \u2013 Queen's Park section",
+        "source": "HS2 Queen's Park and Maida Vale Safeguarding and Property Schemes Zone Map, Doc PH1-HS2-LP-MAP-000-000184, dated 07/10/2024, page 2 of 3 (1:7,500)",
+        "status": "digitised-reference",
+        "note": "Reference trace for public screening; not engineering/survey geometry."
       },
       "geometry": {
         "type": "LineString",
         "coordinates": [
-          [-0.2259,51.5299],
-          [-0.2229,51.5306],
-          [-0.2194,51.5313],
-          [-0.2157,51.5320],
-          [-0.2118,51.5328],
-          [-0.2078,51.5335],
-          [-0.2046,51.5341],
-          [-0.2012,51.5348],
-          [-0.1977,51.5355],
-          [-0.1942,51.5362],
-          [-0.1907,51.5370],
-          [-0.1876,51.5378]
+          [
+            -0.228,
+            51.52945
+          ],
+          [
+            -0.224,
+            51.53025
+          ],
+          [
+            -0.22,
+            51.53105
+          ],
+          [
+            -0.216,
+            51.53182
+          ],
+          [
+            -0.212,
+            51.53258
+          ],
+          [
+            -0.208,
+            51.53335
+          ],
+          [
+            -0.2047,
+            51.53398
+          ],
+          [
+            -0.201,
+            51.5347
+          ],
+          [
+            -0.197,
+            51.53548
+          ],
+          [
+            -0.193,
+            51.53628
+          ],
+          [
+            -0.189,
+            51.53708
+          ],
+          [
+            -0.185,
+            51.53788
+          ]
         ]
       }
     }
