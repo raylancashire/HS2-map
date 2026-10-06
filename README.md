@@ -85,3 +85,6 @@ The route layer now represents the **grey dotted bored-tunnel line identified on
 ## 6 October 2026 – straight tunnel trace correction
 
 The tunnel reference geometry was replaced with a grey dotted line following the grey dotted tunnel feature identified in the supplied close-up map. The previous road-following/bent geometry is superseded. Property distances and the 30 m screening buffer are now calculated from this straight reference line. This remains a visual screening trace, not survey-grade or legal HS2 geometry.
+
+## Route correction – two grey dotted tunnel lines
+The route layer now contains **two separate grey dotted tunnel traces**. The eastern trace has been positioned so that the second line passes beneath the Kilburn Lane / Salusbury Road (Premier Corner) junction, as shown in the supplied close-up reference. Property distance is calculated to the **nearest** of the two traced tunnel lines. These remain reference/screening traces and are not survey/legal geometry.
