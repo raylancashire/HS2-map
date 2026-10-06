@@ -83,7 +83,7 @@ async function loadRoute(){
     if(route){
       routeFeature=route;
       routeLines=route.geometry.type==='MultiLineString'?route.geometry.coordinates.map(line=>line.map(c=>[c[1],c[0]])):[route.geometry.coordinates.map(c=>[c[1],c[0]])];
-      L.geoJSON(route,{style:{color:'#666',weight:3,opacity:.78,dashArray:'2 7',lineCap:'round'}}).addTo(tunnelLayer);
+      L.geoJSON(route,{style:{color:'#555',weight:3,opacity:.9,dashArray:'10 7',lineCap:'butt'}}).addTo(tunnelLayer);
     }
     if(zone){
       L.geoJSON(zone,{style:{color:'#1f5f99',weight:2,opacity:.9,fillColor:'#4f91c7',fillOpacity:.22}}).addTo(zoneLayer);
@@ -92,7 +92,7 @@ async function loadRoute(){
     document.querySelector('#showZone').checked=true;
     if(!map.hasLayer(tunnelLayer))tunnelLayer.addTo(map);
     if(!map.hasLayer(zoneLayer))zoneLayer.addTo(map);
-    document.querySelector('#routeStatus').textContent='HS2 twin tunnel bores traced to follow the faint/dashed tunnel alignment in the supplied Queen’s Park HS2 map extract and registered to the live street map. Reference/screening geometry only; not a legal or survey boundary.';
+    document.querySelector('#routeStatus').textContent='HS2 route-in-tunnel trace digitised from the black/faint dashed line on the supplied Queen’s Park HS2 plan. The previous manually inferred twin-bore lines have been removed. Reference/screening geometry only; not a legal or survey boundary.';
   }catch(err){
     document.querySelector('#routeStatus').textContent='HS2 vector layer could not be loaded: '+err.message;
   }

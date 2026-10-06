@@ -1,11 +1,7 @@
-# HS2 Queen's Park property map – traced tunnel build
+# HS2 Queen’s Park map – source-plan trace calibration
 
-This build keeps the working OpenStreetMap basemap and Google Sheet property loader.
+This build removes the previous manually inferred twin-bore dotted lines.
 
-Change in this build:
-- replaces the earlier curved/hand-inferred tunnel line;
-- draws two parallel dotted tunnel bores;
-- calibrates the route to the faint/dashed alignment visible in the supplied `HS2 route map thru Queen's Park.png` extract;
-- keeps the safeguarded-area polygon as a separate reference layer.
+The tunnel layer is now a **single route-in-tunnel trace**, matching the dashed route symbol visible in the supplied Queen’s Park HS2 plan extract. The live Google Sheet property workflow and OpenStreetMap basemap are unchanged.
 
-The tunnel trace is for screening/reference only and is not legal or survey geometry.
+The tunnel trace remains a reference/screening layer, not a survey or legal boundary. The safeguarded-area layer is separate.
