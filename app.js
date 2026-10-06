@@ -1,5 +1,22 @@
 const map=L.map('map').setView([51.5340,-0.2050],15.2);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+
+// Use a second independent raster service as the default because some Safari/GitHub
+// Pages combinations have intermittently failed to paint the standard OSM tile host.
+// If it fails, automatically fall back to the standard OpenStreetMap tiles.
+const esriTiles=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{
+  maxZoom:19, attribution:'Tiles &copy; Esri'
+});
+const osmTiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19, attribution:'&copy; OpenStreetMap contributors'
+});
+let baseFallbackStarted=false;
+esriTiles.on('tileerror',()=>{
+  if(baseFallbackStarted)return;
+  baseFallbackStarted=true;
+  if(map.hasLayer(esriTiles)) map.removeLayer(esriTiles);
+  osmTiles.addTo(map);
+});
+esriTiles.addTo(map);
 
 const cfg=window.HS2_MAP_CONFIG||{};
 let routeFeature=null, routeLines=[];
@@ -22,7 +39,15 @@ function pointSegDist(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,den=dx*dx+dy*dy;let t=d
 function tunnelDistance(lat,lon){if(!routeLines.length)return NaN;const ref=lat,p=toXY(lat,lon,ref);let d=Infinity;routeLines.forEach(line=>{for(let i=0;i<line.length-1;i++){const a=line[i],b=line[i+1];d=Math.min(d,pointSegDist(p,toXY(a[0],a[1],ref),toXY(b[0],b[1],ref)))}});return d}
 function classify(d){return d<=8?'very-close':d<=30?'within-30':'outside-30'}
 function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}">${esc(p.id)}</span>`,iconSize:[28,28],iconAnchor:[14,14]})}
-function render(){markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;let visible=0;properties.forEach(p=>{if(!(Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)))return;p.distance=NaN;p.status='outside-30';const text=`${p.id} ${p.address} ${p.postcode||''}`.toLowerCase();if((q&&!text.includes(q))||(filter!=='all'&&p.status!==filter))return;visible++;const m=L.marker([+p.latitude,+p.longitude],{icon:iconFor(p)}).addTo(markerLayer);m.bindTooltip(p.address);m.on('click',()=>showDetails(p))});const counts={very:properties.filter(p=>p.status==='very-close').length,within:properties.filter(p=>p.status==='within-30').length,out:properties.filter(p=>p.status==='outside-30').length};document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Very close: ${counts.very} · Within 30 m: ${counts.within} · Outside: ${counts.out}`}
+function render(){markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;let visible=0;properties.forEach(p=>{if(!(Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)))return;p.distance=NaN;p.status='outside-30';const text=`${p.id} ${p.address} ${p.postcode||''}`.toLowerCase();if((q&&!text.includes(q))||(filter!=='all'&&p.status!==filter))return;visible++;const m=L.marker([+p.latitude,+p.longitude],{icon:iconFor(p)}).addTo(markerLayer);m.bindTooltip(p.address);m.on('click',()=>showDetails(p))});const counts={very:properties.filter(p=>p.status==='very-close').length,within:properties.filter(p=>p.status==='within-30').length,out:properties.filter(p=>p.status==='outside-30').length};document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Very close: ${counts.very} · Within 30 m: ${counts.within} · Outside: ${counts.out}`; renderPropertyList(q,filter)}
+
+function renderPropertyList(q='',filter='all'){
+  const el=document.querySelector('#propertyList'); if(!el)return;
+  const rows=properties.filter(p=>{const text=`${p.id} ${p.address} ${p.postcode||''}`.toLowerCase();return (!q||text.includes(q))&&(filter==='all'||p.status===filter)});
+  el.innerHTML=rows.map((p,i)=>`<button class="property-row" data-i="${properties.indexOf(p)}"><strong>${esc(p.address)}</strong><span>${esc(p.postcode||'')}${p.id?' · ID '+esc(p.id):''}</span></button>`).join('');
+  el.querySelectorAll('.property-row').forEach(b=>b.addEventListener('click',()=>{const p=properties[+b.dataset.i]; if(Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)){map.setView([+p.latitude,+p.longitude],18); showDetails(p)}}));
+}
+
 function showDetails(p){document.querySelector('#details').innerHTML=`<h2>Selected property</h2><p><strong>${esc(p.address)}</strong></p><p>ID: ${esc(p.id)}${p.postcode?` · ${esc(p.postcode)}`:''}</p><p>Distance to tunnel: <strong>not calculated in this official-overlay calibration build</strong></p><p>Status: <strong>${p.status==='very-close'?'Very close / above':p.status==='within-30'?'Within 30 m':'Outside 30 m'}</strong></p><p>${esc(p.notes||'')}</p><p class="hint">The official HS2 map overlay is being used for calibration. No hand-drawn distance result is presented in this build.</p>`}
 function splitCSV(line){let out=[],v='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(q&&line[i+1]==='"'){v+='"';i++}else q=!q}else if(c===','&&!q){out.push(v.trim());v=''}else v+=c}out.push(v.trim());return out}
 function normaliseHeader(x){return String(x||'').toLowerCase().trim().replace(/[ _-]+/g,'')}
