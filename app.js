@@ -41,18 +41,38 @@ function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function toXY(lat,lon,refLat){const R=6371000,rad=Math.PI/180;return {x:lon*rad*R*Math.cos(refLat*rad),y:lat*rad*R}}
 function pointSegDist(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,den=dx*dx+dy*dy;let t=den?((p.x-a.x)*dx+(p.y-a.y)*dy)/den:0;t=Math.max(0,Math.min(1,t));return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy))}
 function tunnelDistance(lat,lon){if(!routeLines.length)return NaN;const ref=lat,p=toXY(lat,lon,ref);let d=Infinity;routeLines.forEach(line=>{for(let i=0;i<line.length-1;i++){const a=line[i],b=line[i+1];d=Math.min(d,pointSegDist(p,toXY(a[0],a[1],ref),toXY(b[0],b[1],ref)))}});return d}
-function classify(d){return d<=8?'very-close':d<=30?'within-30':'outside-30'}
-function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}">${esc(p.id)}</span>`,iconSize:[28,28],iconAnchor:[14,14]})}
-function render(){markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;let visible=0;properties.forEach(p=>{if(!isLocalCoordinate(p.latitude,p.longitude))return;p.distance=NaN;p.status='outside-30';const text=`${p.id} ${p.address} ${p.postcode||''}`.toLowerCase();if((q&&!text.includes(q))||(filter!=='all'&&p.status!==filter))return;visible++;const m=L.marker([+p.latitude,+p.longitude],{icon:iconFor(p)}).addTo(markerLayer);m.bindTooltip(p.address);m.on('click',()=>showDetails(p))});const counts={very:properties.filter(p=>p.status==='very-close').length,within:properties.filter(p=>p.status==='within-30').length,out:properties.filter(p=>p.status==='outside-30').length};document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Very close: ${counts.very} · Within 30 m: ${counts.within} · Outside: ${counts.out}`; renderPropertyList(q,filter)}
+function classify(d){return !Number.isFinite(d)?'unknown':d<=15?'d0':d<=30?'d15':d<=60?'d30':d<=100?'d60':'d100'}
+function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}" aria-label="${esc(p.address)}"></span>`,iconSize:[12,12],iconAnchor:[6,6]})}
+function render(){
+ markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;
+ let visible=0;
+ properties.forEach(p=>{
+  p.distance=isLocalCoordinate(p.latitude,p.longitude)?tunnelDistance(+p.latitude,+p.longitude):NaN;
+  p.status=classify(p.distance);
+  if(!isLocalCoordinate(p.latitude,p.longitude))return;
+  const text=`${p.id} ${p.address} ${p.postcode||''}`.toLowerCase();
+  if(q&&!text.includes(q))return;
+  if(filter==='very-close'&&!(p.distance<=15))return;
+  if(filter==='within-30'&&!(p.distance>15&&p.distance<=30))return;
+  if(filter==='outside-30'&&!(p.distance>30))return;
+  visible++;
+  const m=L.marker([+p.latitude,+p.longitude],{icon:iconFor(p)}).addTo(markerLayer);
+  m.bindTooltip(`${esc(p.address)} — ${Number.isFinite(p.distance)?Math.round(p.distance)+' m (estimated)':'distance unavailable'}`);
+  m.on('click',()=>showDetails(p));
+ });
+ const known=properties.filter(p=>Number.isFinite(p.distance)).length;
+ document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Estimated tunnel distances: ${known} · Unavailable: ${properties.length-known}`;
+ renderPropertyList(q,filter);
+}
 
 function renderPropertyList(q='',filter='all'){
   const el=document.querySelector('#propertyList'); if(!el)return;
-  const rows=properties.filter(p=>{const text=`${p.id} ${p.address} ${p.postcode||''}`.toLowerCase();return (!q||text.includes(q))&&(filter==='all'||p.status===filter)});
+  const rows=properties.filter(p=>{const text=`${p.id} ${p.address} ${p.postcode||''}`.toLowerCase();return (!q||text.includes(q))&&(filter==='all'||(filter==='very-close'&&p.distance<=15)||(filter==='within-30'&&p.distance>15&&p.distance<=30)||(filter==='outside-30'&&p.distance>30))});
   el.innerHTML=rows.map((p,i)=>`<button class="property-row" data-i="${properties.indexOf(p)}"><strong>${esc(p.address)}</strong><span>${esc(p.postcode||'')}${p.id?' · ID '+esc(p.id):''}</span></button>`).join('');
   el.querySelectorAll('.property-row').forEach(b=>b.addEventListener('click',()=>{const p=properties[+b.dataset.i]; if(isLocalCoordinate(p.latitude,p.longitude)){map.setView([+p.latitude,+p.longitude],18); showDetails(p)}}));
 }
 
-function showDetails(p){document.querySelector('#details').innerHTML=`<h2>Selected property</h2><p><strong>${esc(p.address)}</strong></p><p>ID: ${esc(p.id)}${p.postcode?` · ${esc(p.postcode)}`:''}</p><p>Distance to tunnel: <strong>not calculated in this official-overlay calibration build</strong></p><p>Status: <strong>${p.status==='very-close'?'Very close / above':p.status==='within-30'?'Within 30 m':'Outside 30 m'}</strong></p><p>${esc(p.notes||'')}</p><p class="hint">The official HS2 map overlay is being used for calibration. No hand-drawn distance result is presented in this build.</p>`}
+function showDetails(p){document.querySelector('#details').innerHTML=`<h2>Selected property</h2><p><strong>${esc(p.address)}</strong></p><p>ID: ${esc(p.id)}${p.postcode?` · ${esc(p.postcode)}`:''}</p><p>Estimated distance to reference tunnel line: <strong>${Number.isFinite(p.distance)?Math.round(p.distance)+' metres':'Unavailable'}</strong></p><p>${esc(p.notes||'')}</p><p class="hint">Distance is measured horizontally from the mapped reference alignment, which is not yet survey-verified. It does not determine settlement-deed eligibility or safeguarded status.</p>`}
 function splitCSV(line){let out=[],v='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(q&&line[i+1]==='"'){v+='"';i++}else q=!q}else if(c===','&&!q){out.push(v.trim());v=''}else v+=c}out.push(v.trim());return out}
 function normaliseHeader(x){return String(x||'').toLowerCase().trim().replace(/[ _-]+/g,'')}
 function parseCSV(text){const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)throw Error('The sheet has no data rows.');const raw=splitCSV(lines[0]);const aliases={id:['id','propertyid','ref','reference'],address:['address','propertyaddress','houseaddress'],postcode:['postcode','postalcode','zip'],latitude:['latitude','lat'],longitude:['longitude','lng','lon','long'],notes:['notes','note','comments','comment']};const idx={};raw.forEach((h,i)=>{const n=normaliseHeader(h);for(const [key,vals] of Object.entries(aliases))if(vals.includes(n))idx[key]=i});if(idx.address===undefined)throw Error('Missing required column: Address.');const rows=[];lines.slice(1).forEach((line,i)=>{const a=splitCSV(line);if(!a.some(Boolean))return;const get=k=>idx[k]===undefined?'':(a[idx[k]]??'').trim();if(!get('address'))return;const lat=parseFloat(get('latitude')),lon=parseFloat(get('longitude'));rows.push({id:get('id')||String(rows.length+1).padStart(2,'0'),address:get('address'),postcode:get('postcode'),latitude:Number.isFinite(lat)?lat:null,longitude:Number.isFinite(lon)?lon:null,notes:get('notes'),rowNumber:i+2})});if(!rows.length)throw Error('No usable property rows were found.');return rows}

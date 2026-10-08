@@ -4,3 +4,9 @@
 .property-list{display:grid;gap:6px}.property-row{margin:0;padding:8px 9px;text-align:left;background:#f4f7fa;color:#172033;border:1px solid #d7e0e8}.property-row strong,.property-row span{display:block}.property-row span{font-size:11px;color:#5d6876;margin-top:2px}
 
 .map-notice{position:absolute;z-index:1000;left:50%;top:12px;transform:translateX(-50%);background:#fff3cd;border:1px solid #d6b656;border-radius:5px;padding:8px 12px;max-width:520px;font-size:13px;box-shadow:0 1px 5px #0003}
+
+/* Compact property dots coloured by estimated distance from the reference route */
+.house-marker{display:block;width:12px;height:12px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 1px 4px #0008;font-size:0}
+.house-marker.d0{background:#c62828}.house-marker.d15{background:#f28c28}.house-marker.d30{background:#e6bc30}.house-marker.d60{background:#339966}.house-marker.d100{background:#2878b8}.house-marker.unknown{background:#888}
+.distance-legend{display:flex;flex-wrap:wrap;gap:7px 12px;font-size:11px;color:#334155;margin:8px 0}
+.distance-legend span{display:inline-flex;align-items:center;gap:4px}.distance-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;border:1px solid #fff;box-shadow:0 0 1px #555}
