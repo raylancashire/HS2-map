@@ -29,6 +29,9 @@ let zoneLayer=L.layerGroup();
 let corridorLayer=L.layerGroup().addTo(map);
 const markerLayer=L.layerGroup().addTo(map);
 let properties=[];
+let placingPin=false, draftPin=null;
+const MANUAL_KEY="hs2qp:manual-pinpoints:v1";
+
 
 const samples=[
 ['01','Sample property – Kilburn Lane','',51.5351,-0.2057,'Sample only'],['02','Sample property – Kilburn Lane','',51.5350,-0.2047,'Sample only'],['03','Sample property – Kilburn Lane','',51.5349,-0.2037,'Sample only'],['04','Sample property – Kilburn Lane','',51.5348,-0.2027,'Sample only'],
@@ -59,12 +62,13 @@ function render(){
   visible++;
   const m=L.marker([+p.latitude,+p.longitude],{icon:iconFor(p)}).addTo(markerLayer);
   m.bindTooltip(`${esc(p.address)} — ${Number.isFinite(p.distance)?Math.round(p.distance)+' m (estimated)':'distance unavailable'}`);
-  m.on('click',()=>showDetails(p));
+  m.on('click',()=>{if(!placingPin)showDetails(p)});
   m.bindPopup(()=>propertyCard(p),{maxWidth:340,minWidth:240});
  });
  const known=properties.filter(p=>Number.isFinite(p.distance)).length;
  document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Estimated tunnel distances: ${known} · Unavailable: ${properties.length-known}`;
  renderPropertyList(q,filter);
+ refreshPinOptions();
 }
 
 function renderPropertyList(q='',filter='all'){
@@ -107,7 +111,7 @@ function showUnresolved(failed){const el=document.querySelector('#unresolved');i
 function setDataStatus(message,kind=''){const el=document.querySelector('#dataStatus');el.textContent=message;el.className='data-status '+kind}
 function sheetCsvUrl(){return cfg.spreadsheetId?`https://docs.google.com/spreadsheets/d/${encodeURIComponent(cfg.spreadsheetId)}/export?format=csv&gid=${encodeURIComponent(cfg.sheetGid||'0')}`:''}
 function fitAll(){const pts=validProperties().map(p=>[+p.latitude,+p.longitude]);if(pts.length===1)map.setView(pts[0],17);else if(pts.length>1)map.fitBounds(pts,{padding:[60,60],maxZoom:17});else map.setView([51.5340,-0.2050],15.2);setTimeout(()=>map.invalidateSize(true),50)}
-async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=samples.map(x=>({...x}));render();setDataStatus(`Google Sheet could not be loaded: ${err.message} Showing 20 sample properties instead.`,'error')}}
+async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());applyManualPins();const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=samples.map(x=>({...x}));render();setDataStatus(`Google Sheet could not be loaded: ${err.message} Showing 20 sample properties instead.`,'error')}}
 async function loadRoute(){
   tunnelLayer.clearLayers(); zoneLayer.clearLayers(); corridorLayer.clearLayers(); routeLines=[];
   try{
@@ -146,7 +150,7 @@ document.querySelector('#showCorridor').addEventListener('change',e=>e.target.ch
 document.querySelector('#showTunnel').addEventListener('change',e=>e.target.checked?tunnelLayer.addTo(map):map.removeLayer(tunnelLayer));document.querySelector('#showZone').addEventListener('change',e=>e.target.checked?zoneLayer.addTo(map):map.removeLayer(zoneLayer));document.querySelector('#showHouses').addEventListener('change',e=>e.target.checked?markerLayer.addTo(map):map.removeLayer(markerLayer));
 document.querySelector('#reloadSheet').addEventListener('click',loadGoogleSheet);
 document.querySelector('#restore').addEventListener('click',()=>{properties=samples.map(x=>({...x}));document.querySelector('#csvFile').value='';render();fitAll();setDataStatus('Showing 20 sample properties.','')});
-document.querySelector('#csvFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{properties=parseCSV(await f.text());const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from local CSV · ${validProperties().length} located.`,'ok')}catch(err){alert('Could not import CSV: '+err.message);e.target.value=''}});
+document.querySelector('#csvFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{properties=parseCSV(await f.text());applyManualPins();const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from local CSV · ${validProperties().length} located.`,'ok')}catch(err){alert('Could not import CSV: '+err.message);e.target.value=''}});
 // Browsers can restore old form selections after a GitHub Pages refresh. Force a
 // predictable startup state so newly loaded properties are never hidden.
 
@@ -160,3 +164,72 @@ document.querySelector('#showTunnel').checked=true;
 document.querySelector('#showZone').checked=false;
 document.querySelector('#showCorridor').checked=true;
 properties=samples.map(x=>({...x}));render();loadRoute().then(()=>{if(cfg.useGoogleSheet!==false)loadGoogleSheet();else setDataStatus('Google Sheet loading is disabled; showing sample properties.','')});
+
+
+// Manual pinpoints: explicit browser-local overrides, never silently written to Google Sheets.
+function storedPins(){try{return JSON.parse(localStorage.getItem(MANUAL_KEY)||'{}')}catch{return {}}}
+function pinKey(p){return String(p.id||'').trim()+'|'+String(p.address||'').trim().toLowerCase()}
+function applyManualPins(){
+ const pins=storedPins(), seen=new Set();
+ properties.forEach(p=>{const k=pinKey(p);seen.add(k);if(pins[k]&&isLocalCoordinate(pins[k].latitude,pins[k].longitude)){
+  p.latitude=pins[k].latitude;p.longitude=pins[k].longitude;p.locationSource='manual';
+ }});
+ Object.entries(pins).forEach(([k,p])=>{if(!seen.has(k)&&isLocalCoordinate(p.latitude,p.longitude))properties.push({...p,locationSource:'manual'})});
+}
+function refreshPinOptions(){
+ const sel=document.querySelector('#pinProperty');if(!sel)return;
+ const old=sel.value;
+ sel.innerHTML='<option value="new">+ New property</option>'+properties.map((p,i)=>`<option value="${i}">${esc(p.address)}${p.postcode?' ('+esc(p.postcode)+')':''}</option>`).join('');
+ sel.value=(old==='new'||old===''||!Number.isInteger(+old)||+old>=properties.length)?'new':old;
+}
+function pinMsg(s){document.querySelector('#pinMessage').textContent=s}
+function stopPin(){
+ placingPin=false;map.getContainer().style.cursor='';
+ if(draftPin){map.removeLayer(draftPin);draftPin=null}
+ document.querySelector('#savePin').disabled=true;document.querySelector('#cancelPin').disabled=true;
+}
+document.querySelector('#pinProperty').addEventListener('change',e=>{
+ const p=properties[+e.target.value];if(e.target.value==='new'||!p){document.querySelector('#pinAddress').value='';document.querySelector('#pinPostcode').value='';document.querySelector('#pinNotes').value='';return}
+ document.querySelector('#pinAddress').value=p.address;document.querySelector('#pinPostcode').value=p.postcode||'';document.querySelector('#pinNotes').value=p.notes||'';
+ if(isLocalCoordinate(p.latitude,p.longitude))map.setView([+p.latitude,+p.longitude],18);
+});
+document.querySelector('#startPin').addEventListener('click',()=>{
+ if(!document.querySelector('#pinAddress').value.trim()){pinMsg('Enter an address first.');return}
+ stopPin();placingPin=true;map.getContainer().style.cursor='crosshair';
+ document.querySelector('#cancelPin').disabled=false;
+ pinMsg('Click the building on the map to place the pinpoint.');
+});
+map.on('click',e=>{
+ if(!placingPin)return;
+ if(!isLocalCoordinate(e.latlng.lat,e.latlng.lng)){pinMsg('Choose a location in the Queen’s Park area.');return}
+ if(draftPin)map.removeLayer(draftPin);
+ draftPin=L.marker(e.latlng,{draggable:true,autoPan:true}).addTo(map);
+ draftPin.bindTooltip('Drag to refine the position').openTooltip();
+ document.querySelector('#savePin').disabled=false;
+ pinMsg('Drag the temporary marker if necessary, then select Save pinpoint locally.');
+});
+document.querySelector('#cancelPin').addEventListener('click',()=>{stopPin();pinMsg('Pinpoint placement cancelled.')});
+document.querySelector('#savePin').addEventListener('click',()=>{
+ if(!placingPin||!draftPin)return;
+ const address=document.querySelector('#pinAddress').value.trim(),postcode=document.querySelector('#pinPostcode').value.trim();
+ if(!address){pinMsg('Address is required.');return}
+ const loc=draftPin.getLatLng();
+ const chosen=document.querySelector('#pinProperty').value;
+ const original=chosen==='new'?null:properties[+chosen];
+ const id=original?.id||'M'+Date.now().toString(36).toUpperCase();
+ const p={...(original||{}),id,address,postcode,notes:document.querySelector('#pinNotes').value.trim(),latitude:+loc.lat.toFixed(7),longitude:+loc.lng.toFixed(7),locationSource:'manual'};
+ if(original)Object.assign(original,p);else properties.push(p);
+ const pins=storedPins();pins[pinKey(p)]=p;
+ try{localStorage.setItem(MANUAL_KEY,JSON.stringify(pins))}catch{pinMsg('Browser storage failed. Download the CSV immediately.')}
+ stopPin();render();showDetails(p);map.setView([p.latitude,p.longitude],18);
+ pinMsg('Pinpoint saved in this browser. Download CSV to back it up and share it.');
+});
+function csvCell(v){const s=String(v??'');return '"'+s.replace(/"/g,'""')+'"'}
+document.querySelector('#exportPins').addEventListener('click',()=>{
+ const headers=['ID','Address','Postcode','Latitude','Longitude','Notes','Photos','Location Source'];
+ const rows=properties.map(p=>[p.id,p.address,p.postcode,p.latitude??'',p.longitude??'',p.notes,p.photos,p.locationSource||'geocoded']);
+ const csv='\uFEFF'+[headers,...rows].map(r=>r.map(csvCell).join(',')).join('\r\n');
+ const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+ const a=document.createElement('a');a.href=url;a.download='hs2-property-pinpoints.csv';document.body.append(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+});

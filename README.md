@@ -1,29 +1,16 @@
-# HS2 Queen’s Park map – source-plan trace calibration
+# HS2 Queen’s Park — Manual Pinpoint Editor
 
-This build removes the previous manually inferred twin-bore dotted lines.
+Upload all files in this folder to the GitHub Pages repository root.
 
-The tunnel layer is now a **single route-in-tunnel trace**, matching the dashed route symbol visible in the supplied Queen’s Park HS2 plan extract. The live Google Sheet property workflow and OpenStreetMap basemap are unchanged.
+## Add a pinpoint
+1. Select **+ New property** or an existing address under **Manual pinpoint editor**.
+2. Enter/edit the address and optional postcode/notes.
+3. Click **Place pinpoint on map**, then click the correct building on the map.
+4. Drag the temporary pin if needed; click **Save pinpoint locally**.
+5. Click **Download property pinpoints CSV** to preserve the results.
 
-The tunnel trace remains a reference/screening layer, not a survey or legal boundary. The safeguarded-area layer is separate.
+Manual pinpoints are saved in this browser's localStorage, NOT directly in the Google Sheet. They will not automatically appear for other visitors or on other devices. To publish the coordinates, add the `Latitude` and `Longitude` columns from the exported CSV to your existing Google Sheet (match by ID/address). The map will then use those coordinates directly. You can also use **Import CSV instead** to preview an exported CSV.
 
+Existing Google Sheet ID and Webador photo album link are unchanged. The tunnel alignment, 30 m corridor and distances remain provisional and are not official eligibility boundaries.
 
-## Property details and photos
-Click a property marker to open a popup showing address, postcode, property ID, coordinates, provisional tunnel distance, notes and associated photos. The same information appears in the Selected property sidebar.
-
-The existing Google Sheet works unchanged. To add photos, add an optional `Photos` column to the sheet. Put one or more publicly accessible, direct HTTPS image URLs in each cell, separated with `|` (vertical bar). Links to private Google Drive pages will not display as images; the URL must return an actual image and permit embedding. If none are supplied, the popup says no photographs are linked. No photographs are fabricated or fetched automatically.
-
-The tunnel geometry in `hs2-route.geojson` remains unverified; distances and distance-based marker colours are provisional.
-
-## Combined Webador photo album
-
-Every property popup and Selected property panel now links to the published combined album: https://www.queensparktrust.org/hs2-property-photographs . Change `propertyPhotoAlbumUrl` in `config.js` if the album moves. The link opens the full album, not an address-filtered view. Optional per-property `Photos` image URLs continue to work independently. No edits to the Google Sheet are required for the album link.
-
-
-## Indicative 30 metre corridor (new)
-The `Indicative 30 m tunnel corridor` checkbox shows a Turf.js geodesic buffer extending 30 metres on either side of the current `hs2-route.geojson` tunnel line. It is independent of the official safeguarding layer. The current line has NOT been confirmed to coincide with the grey dotted route in the user’s 8 October screenshot. Consequently the buffer, distance colours and property distance figures are provisional. Do not use them for eligibility, compensation, engineering or legal conclusions.
-
-## 20-degree alignment experiment
-The existing provisional tunnel LineString was rotated clockwise by 20 degrees about its middle vertex (in a local metre-based projection). The shaded 30 m corridor and house distances are recalculated automatically by app.js from this updated GeoJSON. This is a visual experiment, NOT a verified HS2 tunnel alignment or eligibility boundary. The safeguarded polygon has not been rotated.
-
-## Latest visual adjustment (8 October 2026)
-The tunnel LineString has been rotated **40 degrees anti-clockwise relative to the previous 20-degree clockwise build**, about its middle vertex. This produces a net **20-degree anti-clockwise** adjustment relative to the pre-rotation geometry. The 30 m buffer and distances follow the line dynamically. This is provisional visual geometry, not the official tunnel route.
+**Privacy:** Anyone with access to a published property spreadsheet/map can view the listed property locations. Avoid uploading private information.
