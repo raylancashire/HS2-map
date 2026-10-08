@@ -24,3 +24,6 @@ The `Indicative 30 m tunnel corridor` checkbox shows a Turf.js geodesic buffer e
 
 ## 20-degree alignment experiment
 The existing provisional tunnel LineString was rotated clockwise by 20 degrees about its middle vertex (in a local metre-based projection). The shaded 30 m corridor and house distances are recalculated automatically by app.js from this updated GeoJSON. This is a visual experiment, NOT a verified HS2 tunnel alignment or eligibility boundary. The safeguarded polygon has not been rotated.
+
+## Latest visual adjustment (8 October 2026)
+The tunnel LineString has been rotated **40 degrees anti-clockwise relative to the previous 20-degree clockwise build**, about its middle vertex. This produces a net **20-degree anti-clockwise** adjustment relative to the pre-rotation geometry. The 30 m buffer and distances follow the line dynamically. This is provisional visual geometry, not the official tunnel route.
