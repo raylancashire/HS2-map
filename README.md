@@ -14,3 +14,6 @@ Manual pinpoints are saved in this browser's localStorage, NOT directly in the G
 Existing Google Sheet ID and Webador photo album link are unchanged. The tunnel alignment, 30 m corridor and distances remain provisional and are not official eligibility boundaries.
 
 **Privacy:** Anyone with access to a published property spreadsheet/map can view the listed property locations. Avoid uploading private information.
+
+## Safari CSV download fix
+CSV export now uses a data URL rather than a blob URL, avoiding the observed Safari WebKitBlobResource error. A visible Copy CSV backup is provided below the download button. If Safari opens the CSV as a page, use the Copy CSV backup and save as UTF-8 `.csv`. Existing saved local pinpoints are not cleared by the update when deployed at the same origin.

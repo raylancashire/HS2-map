@@ -249,11 +249,32 @@ document.querySelector('#savePin').addEventListener('click',()=>{
  pinMsg('Pinpoint saved in this browser. Download CSV to back it up and share it.');
 });
 function csvCell(v){const s=String(v??'');return '"'+s.replace(/"/g,'""')+'"'}
-document.querySelector('#exportPins').addEventListener('click',()=>{
+function propertyCsv(){
  const headers=['ID','Address','Postcode','Latitude','Longitude','Notes','Photos','Location Source'];
  const rows=properties.map(p=>[p.id,p.address,p.postcode,p.latitude??'',p.longitude??'',p.notes,p.photos,p.locationSource||'geocoded']);
- const csv='\uFEFF'+[headers,...rows].map(r=>r.map(csvCell).join(',')).join('\r\n');
- const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
- const a=document.createElement('a');a.href=url;a.download='hs2-property-pinpoints.csv';document.body.append(a);a.click();a.remove();
- setTimeout(()=>URL.revokeObjectURL(url),1000);
+ return '\uFEFF'+[headers,...rows].map(r=>r.map(csvCell).join(',')).join('\r\n');
+}
+function showCsvFallback(csv){
+ const panel=document.querySelector('#csvFallback');
+ document.querySelector('#csvText').value=csv;
+ panel.hidden=false;
+ document.querySelector('#csvText').focus();
+ pinMsg('CSV ready. If Safari does not download it, use Copy CSV or select the text and paste into a spreadsheet.');
+}
+document.querySelector('#exportPins').addEventListener('click',()=>{
+ const csv=propertyCsv();
+ // Data URL avoids Safari's blob: navigation/WebKitBlobResource error.
+ // Keep the visible copy fallback for browsers that open the CSV as text.
+ showCsvFallback(csv);
+ const a=document.createElement('a');
+ a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+ a.download='hs2-property-pinpoints.csv';
+ a.style.display='none';document.body.appendChild(a);
+ try{a.click()}catch(e){pinMsg('Automatic download blocked. Use Copy CSV below.');}
+ a.remove();
+});
+document.querySelector('#copyCsv').addEventListener('click',async()=>{
+ const t=document.querySelector('#csvText');
+ try{await navigator.clipboard.writeText(t.value);pinMsg('CSV copied. Paste it into a text file or spreadsheet.');}
+ catch(e){t.focus();t.select();pinMsg('Press Command+C to copy the selected CSV, then paste into a text file or spreadsheet.');}
 });
