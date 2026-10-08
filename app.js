@@ -59,6 +59,7 @@ function render(){
   const m=L.marker([+p.latitude,+p.longitude],{icon:iconFor(p)}).addTo(markerLayer);
   m.bindTooltip(`${esc(p.address)} — ${Number.isFinite(p.distance)?Math.round(p.distance)+' m (estimated)':'distance unavailable'}`);
   m.on('click',()=>showDetails(p));
+  m.bindPopup(()=>propertyCard(p),{maxWidth:340,minWidth:240});
  });
  const known=properties.filter(p=>Number.isFinite(p.distance)).length;
  document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Estimated tunnel distances: ${known} · Unavailable: ${properties.length-known}`;
@@ -72,10 +73,24 @@ function renderPropertyList(q='',filter='all'){
   el.querySelectorAll('.property-row').forEach(b=>b.addEventListener('click',()=>{const p=properties[+b.dataset.i]; if(isLocalCoordinate(p.latitude,p.longitude)){map.setView([+p.latitude,+p.longitude],18); showDetails(p)}}));
 }
 
-function showDetails(p){document.querySelector('#details').innerHTML=`<h2>Selected property</h2><p><strong>${esc(p.address)}</strong></p><p>ID: ${esc(p.id)}${p.postcode?` · ${esc(p.postcode)}`:''}</p><p>Estimated distance to reference tunnel line: <strong>${Number.isFinite(p.distance)?Math.round(p.distance)+' metres':'Unavailable'}</strong></p><p>${esc(p.notes||'')}</p><p class="hint">Distance is measured horizontally from the mapped reference alignment, which is not yet survey-verified. It does not determine settlement-deed eligibility or safeguarded status.</p>`}
+function safePhotoUrls(p){
+ const raw=String(p.photos||'').trim();
+ return raw.split(/[|;\n]+/).map(x=>x.trim()).filter(x=>{try{const u=new URL(x);return u.protocol==='https:';}catch{return false;}}).slice(0,12);
+}
+function photoAlbumLink(){
+ const url=String(cfg.propertyPhotoAlbumUrl||'').trim();
+ try{const u=new URL(url);if(u.protocol!=='https:')return '';return `<p class="album-link"><a href="${esc(u.href)}" target="_blank" rel="noopener noreferrer">View Property Photographs ↗</a></p>`;}catch{return '';}
+}
+function propertyCard(p){
+ const distance=Number.isFinite(p.distance)?Math.round(p.distance)+' metres (estimated)':'Not available';
+ const photos=safePhotoUrls(p);
+ const gallery=photos.length?`<div class="property-gallery">${photos.map((url,i)=>`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="Open property photo ${i+1}"><img src="${esc(url)}" alt="Photo ${i+1} associated with ${esc(p.address)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"></a>`).join('')}</div>`:'<p class="hint">No photographs linked to this property.</p>';
+ return `<div class="property-card"><h3>${esc(p.address)}</h3><p><strong>Location:</strong> ${esc(p.address)}${p.postcode?', '+esc(p.postcode):''}</p><p><strong>Property ID:</strong> ${esc(p.id)}</p><p><strong>Distance from tunnel:</strong> ${distance}</p><p><strong>Coordinates:</strong> ${Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)?Number(p.latitude).toFixed(6)+', '+Number(p.longitude).toFixed(6):'Unavailable'}</p>${p.notes?`<p>${esc(p.notes)}</p>`:''}<h4>Associated photographs</h4>${gallery}${photoAlbumLink()}<p class="hint">Tunnel geometry is provisional. Distance is horizontal and does not establish eligibility or safeguarding status.</p></div>`;
+}
+function showDetails(p){document.querySelector('#details').innerHTML='<h2>Selected property</h2>'+propertyCard(p)}
 function splitCSV(line){let out=[],v='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(q&&line[i+1]==='"'){v+='"';i++}else q=!q}else if(c===','&&!q){out.push(v.trim());v=''}else v+=c}out.push(v.trim());return out}
 function normaliseHeader(x){return String(x||'').toLowerCase().trim().replace(/[ _-]+/g,'')}
-function parseCSV(text){const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)throw Error('The sheet has no data rows.');const raw=splitCSV(lines[0]);const aliases={id:['id','propertyid','ref','reference'],address:['address','propertyaddress','houseaddress'],postcode:['postcode','postalcode','zip'],latitude:['latitude','lat'],longitude:['longitude','lng','lon','long'],notes:['notes','note','comments','comment']};const idx={};raw.forEach((h,i)=>{const n=normaliseHeader(h);for(const [key,vals] of Object.entries(aliases))if(vals.includes(n))idx[key]=i});if(idx.address===undefined)throw Error('Missing required column: Address.');const rows=[];lines.slice(1).forEach((line,i)=>{const a=splitCSV(line);if(!a.some(Boolean))return;const get=k=>idx[k]===undefined?'':(a[idx[k]]??'').trim();if(!get('address'))return;const lat=parseFloat(get('latitude')),lon=parseFloat(get('longitude'));rows.push({id:get('id')||String(rows.length+1).padStart(2,'0'),address:get('address'),postcode:get('postcode'),latitude:Number.isFinite(lat)?lat:null,longitude:Number.isFinite(lon)?lon:null,notes:get('notes'),rowNumber:i+2})});if(!rows.length)throw Error('No usable property rows were found.');return rows}
+function parseCSV(text){const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)throw Error('The sheet has no data rows.');const raw=splitCSV(lines[0]);const aliases={id:['id','propertyid','ref','reference'],address:['address','propertyaddress','houseaddress'],postcode:['postcode','postalcode','zip'],latitude:['latitude','lat'],longitude:['longitude','lng','lon','long'],notes:['notes','note','comments','comment'],photos:['photos','photourls','photo','images','imageurls','photolinks']};const idx={};raw.forEach((h,i)=>{const n=normaliseHeader(h);for(const [key,vals] of Object.entries(aliases))if(vals.includes(n))idx[key]=i});if(idx.address===undefined)throw Error('Missing required column: Address.');const rows=[];lines.slice(1).forEach((line,i)=>{const a=splitCSV(line);if(!a.some(Boolean))return;const get=k=>idx[k]===undefined?'':(a[idx[k]]??'').trim();if(!get('address'))return;const lat=parseFloat(get('latitude')),lon=parseFloat(get('longitude'));rows.push({id:get('id')||String(rows.length+1).padStart(2,'0'),address:get('address'),postcode:get('postcode'),latitude:Number.isFinite(lat)?lat:null,longitude:Number.isFinite(lon)?lon:null,notes:get('notes'),photos:get('photos'),rowNumber:i+2})});if(!rows.length)throw Error('No usable property rows were found.');return rows}
 const GEOCODE_CACHE_VERSION='v3';
 const QP_BOUNDS={south:51.515,north:51.555,west:-0.245,east:-0.165};
 function isLocalCoordinate(lat,lon){lat=+lat;lon=+lon;return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=QP_BOUNDS.south&&lat<=QP_BOUNDS.north&&lon>=QP_BOUNDS.west&&lon<=QP_BOUNDS.east}

@@ -7,5 +7,6 @@ window.HS2_MAP_CONFIG = {
 
   // Address lookup. Kept here so the provider can be changed without editing app.js.
   geocoderUrl: 'https://nominatim.openstreetmap.org/search',
-  geocodeDelayMs: 1100
+  geocodeDelayMs: 1100,
+  propertyPhotoAlbumUrl: 'https://www.queensparktrust.org/hs2-property-photographs'
 };
