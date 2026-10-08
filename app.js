@@ -26,6 +26,7 @@ const cfg=window.HS2_MAP_CONFIG||{};
 let routeFeature=null, routeLines=[];
 let tunnelLayer=L.layerGroup().addTo(map);
 let zoneLayer=L.layerGroup();
+let corridorLayer=L.layerGroup().addTo(map);
 const markerLayer=L.layerGroup().addTo(map);
 let properties=[];
 
@@ -108,7 +109,7 @@ function sheetCsvUrl(){return cfg.spreadsheetId?`https://docs.google.com/spreads
 function fitAll(){const pts=validProperties().map(p=>[+p.latitude,+p.longitude]);if(pts.length===1)map.setView(pts[0],17);else if(pts.length>1)map.fitBounds(pts,{padding:[60,60],maxZoom:17});else map.setView([51.5340,-0.2050],15.2);setTimeout(()=>map.invalidateSize(true),50)}
 async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=samples.map(x=>({...x}));render();setDataStatus(`Google Sheet could not be loaded: ${err.message} Showing 20 sample properties instead.`,'error')}}
 async function loadRoute(){
-  tunnelLayer.clearLayers(); zoneLayer.clearLayers(); routeLines=[];
+  tunnelLayer.clearLayers(); zoneLayer.clearLayers(); corridorLayer.clearLayers(); routeLines=[];
   try{
     const res=await fetch('hs2-route.geojson',{cache:'no-store'});
     if(!res.ok) throw Error('HTTP '+res.status);
@@ -119,21 +120,29 @@ async function loadRoute(){
       routeFeature=route;
       routeLines=route.geometry.type==='MultiLineString'?route.geometry.coordinates.map(line=>line.map(c=>[c[1],c[0]])):[route.geometry.coordinates.map(c=>[c[1],c[0]])];
       L.geoJSON(route,{style:{color:'#555',weight:3,opacity:.9,dashArray:'10 7',lineCap:'butt'}}).addTo(tunnelLayer);
+      // Turf computes a true geographic 30 metre buffer, not a pixel-width stroke.
+      if(window.turf && typeof turf.buffer==='function'){
+        const corridor=turf.buffer(route,30,{units:'meters',steps:32});
+        L.geoJSON(corridor,{style:{color:'#bd3b3b',weight:1.5,opacity:.7,fillColor:'#e66b6b',fillOpacity:.24},interactive:false}).addTo(corridorLayer);
+      }
     }
     if(zone){
       L.geoJSON(zone,{style:{color:'#1f5f99',weight:2,opacity:.9,fillColor:'#4f91c7',fillOpacity:.22}}).addTo(zoneLayer);
     }
     document.querySelector('#showTunnel').checked=true;
-    document.querySelector('#showZone').checked=true;
+    document.querySelector('#showZone').checked=false;
+    document.querySelector('#showCorridor').checked=true;
     if(!map.hasLayer(tunnelLayer))tunnelLayer.addTo(map);
-    if(!map.hasLayer(zoneLayer))zoneLayer.addTo(map);
-    document.querySelector('#routeStatus').textContent='HS2 route-in-tunnel trace digitised from the black/faint dashed line on the supplied Queen’s Park HS2 plan. The previous manually inferred twin-bore lines have been removed. Reference/screening geometry only; not a legal or survey boundary.';
+    if(map.hasLayer(zoneLayer))map.removeLayer(zoneLayer);
+    if(!map.hasLayer(corridorLayer))corridorLayer.addTo(map);
+    document.querySelector('#routeStatus').textContent='Red shading is a calculated 30 m buffer either side of the current grey tunnel line. The line has NOT been verified against the source screenshot, so this corridor and house distances are indicative only, not an official HS2 eligibility boundary.';
   }catch(err){
     document.querySelector('#routeStatus').textContent='HS2 vector layer could not be loaded: '+err.message;
   }
   render();
 }
 document.querySelector('#search').addEventListener('input',render);document.querySelector('#status').addEventListener('change',render);
+document.querySelector('#showCorridor').addEventListener('change',e=>e.target.checked?corridorLayer.addTo(map):map.removeLayer(corridorLayer));
 document.querySelector('#showTunnel').addEventListener('change',e=>e.target.checked?tunnelLayer.addTo(map):map.removeLayer(tunnelLayer));document.querySelector('#showZone').addEventListener('change',e=>e.target.checked?zoneLayer.addTo(map):map.removeLayer(zoneLayer));document.querySelector('#showHouses').addEventListener('change',e=>e.target.checked?markerLayer.addTo(map):map.removeLayer(markerLayer));
 document.querySelector('#reloadSheet').addEventListener('click',loadGoogleSheet);
 document.querySelector('#restore').addEventListener('click',()=>{properties=samples.map(x=>({...x}));document.querySelector('#csvFile').value='';render();fitAll();setDataStatus('Showing 20 sample properties.','')});
@@ -148,5 +157,6 @@ document.querySelector('#status').value='all';
 document.querySelector('#search').value='';
 document.querySelector('#showHouses').checked=true;
 document.querySelector('#showTunnel').checked=true;
-document.querySelector('#showZone').checked=true;
+document.querySelector('#showZone').checked=false;
+document.querySelector('#showCorridor').checked=true;
 properties=samples.map(x=>({...x}));render();loadRoute().then(()=>{if(cfg.useGoogleSheet!==false)loadGoogleSheet();else setDataStatus('Google Sheet loading is disabled; showing sample properties.','')});

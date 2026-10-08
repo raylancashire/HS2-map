@@ -17,3 +17,7 @@ The tunnel geometry in `hs2-route.geojson` remains unverified; distances and dis
 ## Combined Webador photo album
 
 Every property popup and Selected property panel now links to the published combined album: https://www.queensparktrust.org/hs2-property-photographs . Change `propertyPhotoAlbumUrl` in `config.js` if the album moves. The link opens the full album, not an address-filtered view. Optional per-property `Photos` image URLs continue to work independently. No edits to the Google Sheet are required for the album link.
+
+
+## Indicative 30 metre corridor (new)
+The `Indicative 30 m tunnel corridor` checkbox shows a Turf.js geodesic buffer extending 30 metres on either side of the current `hs2-route.geojson` tunnel line. It is independent of the official safeguarding layer. The current line has NOT been confirmed to coincide with the grey dotted route in the user’s 8 October screenshot. Consequently the buffer, distance colours and property distance figures are provisional. Do not use them for eligibility, compensation, engineering or legal conclusions.
