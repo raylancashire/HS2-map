@@ -5,77 +5,77 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "HS2 route in tunnel \u2013 source-plan dashed trace",
+        "name": "HS2 route in tunnel \u2013 20\u00b0 clockwise visual adjustment",
         "source": "HS2 Property Schemes map PC-01-004 (June 2019)",
-        "status": "digitised-source-plan-trace-calibration",
-        "note": "Single route-in-tunnel trace replacing the earlier manually inferred twin-bore lines. Position calibrated against the Kilburn Lane/Queen\u2019s Park street framework; reference only."
+        "status": "user-requested-20-degree-visual-adjustment-unverified",
+        "note": "Whole provisional line rotated clockwise 20 degrees about its middle vertex in local metre coordinates. Not georeferenced to official HS2 geometry."
       },
       "geometry": {
         "type": "LineString",
         "coordinates": [
           [
-            -0.21755,
-            51.53093
+            -0.2175797,
+            51.532425
           ],
           [
-            -0.2167,
-            51.53103
+            -0.216726,
+            51.5323382
           ],
           [
-            -0.21585,
-            51.53113
+            -0.2158723,
+            51.5322513
           ],
           [
-            -0.215,
-            51.53123
+            -0.2150186,
+            51.5321644
           ],
           [
-            -0.21415,
-            51.53133
+            -0.2141649,
+            51.5320775
           ],
           [
-            -0.2133,
-            51.53143
+            -0.2133112,
+            51.5319906
           ],
           [
-            -0.21245,
-            51.53153
+            -0.2124574,
+            51.5319038
           ],
           [
-            -0.2116,
-            51.53163
+            -0.2116037,
+            51.5318169
           ],
           [
             -0.21075,
             51.53173
           ],
           [
-            -0.2099,
-            51.53183
+            -0.2098963,
+            51.5316431
           ],
           [
-            -0.20905,
-            51.53193
+            -0.2090426,
+            51.5315562
           ],
           [
-            -0.2082,
-            51.53203
+            -0.2081888,
+            51.5314694
           ],
           [
-            -0.20735,
-            51.53213
+            -0.2073351,
+            51.5313825
           ],
           [
-            -0.2065,
-            51.53223
+            -0.2064814,
+            51.5312956
           ],
           [
-            -0.20565,
-            51.53233
+            -0.2056277,
+            51.5312087
           ],
           [
-            -0.2048,
-            51.53243
+            -0.204774,
+            51.5311218
           ]
         ]
       }
