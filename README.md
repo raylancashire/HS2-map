@@ -17,3 +17,9 @@ Existing Google Sheet ID and Webador photo album link are unchanged. The tunnel 
 
 ## Safari CSV download fix
 CSV export now uses a data URL rather than a blob URL, avoiding the observed Safari WebKitBlobResource error. A visible Copy CSV backup is provided below the download button. If Safari opens the CSV as a page, use the Copy CSV backup and save as UTF-8 `.csv`. Existing saved local pinpoints are not cleared by the update when deployed at the same origin.
+
+## Editing an existing street name
+Select an existing property or click its **Edit location on map** button. Change the **Address** text and click **Save address / street name**. You do not need to move the pinpoint. The edit persists locally across Google Sheet reloads by matching property ID, and the exported CSV includes the revised street name. To publish it for everyone, also update the master Google Sheet. If the sheet has duplicate IDs, give each property a unique ID.
+
+## Selecting an address
+Click an address in the Loaded Addresses list or choose a property in the Pinpoint Editor. The map now moves to the saved coordinates at building-level zoom and opens a popup. Unlocated properties are not assigned invented coordinates.

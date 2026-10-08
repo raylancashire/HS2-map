@@ -76,7 +76,7 @@ function renderPropertyList(q='',filter='all'){
   const el=document.querySelector('#propertyList'); if(!el)return;
   const rows=properties.filter(p=>{const text=`${p.id} ${p.address} ${p.postcode||''}`.toLowerCase();return (!q||text.includes(q))&&(filter==='all'||(filter==='very-close'&&p.distance<=15)||(filter==='within-30'&&p.distance>15&&p.distance<=30)||(filter==='outside-30'&&p.distance>30))});
   el.innerHTML=rows.map((p,i)=>`<button class="property-row" data-i="${properties.indexOf(p)}"><strong>${esc(p.address)}</strong><span>${esc(p.postcode||'')}${p.id?' · ID '+esc(p.id):''}</span></button>`).join('');
-  el.querySelectorAll('.property-row').forEach(b=>b.addEventListener('click',()=>{const p=properties[+b.dataset.i]; if(isLocalCoordinate(p.latitude,p.longitude))map.setView([+p.latitude,+p.longitude],18);showDetails(p)}));
+  el.querySelectorAll('.property-row').forEach(b=>b.addEventListener('click',()=>focusProperty(properties[+b.dataset.i])));
 }
 
 function safePhotoUrls(p){
@@ -94,6 +94,24 @@ function propertyCard(p){
  return `<div class="property-card"><h3>${esc(p.address)}</h3><p><strong>Location:</strong> ${esc(p.address)}${p.postcode?', '+esc(p.postcode):''}</p><p><strong>Property ID:</strong> ${esc(p.id)}</p><p><strong>Distance from tunnel:</strong> ${distance}</p><p><strong>Coordinates:</strong> ${Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)?Number(p.latitude).toFixed(6)+', '+Number(p.longitude).toFixed(6):'Unavailable'}</p>${p.notes?`<p>${esc(p.notes)}</p>`:''}<h4>Associated photographs</h4>${gallery}${photoAlbumLink()}<button type="button" class="edit-location" data-property-id="${esc(p.id)}" data-property-address="${esc(p.address)}">Edit location on map</button><p class="hint">Tunnel geometry is provisional. Distance is horizontal and does not establish eligibility or safeguarding status.</p></div>`;
 }
 function showDetails(p){document.querySelector('#details').innerHTML='<h2>Selected property</h2>'+propertyCard(p);bindEditLocation(document.querySelector('#details'))}
+function focusProperty(p,zoom=19){
+ if(!p)return;
+ showDetails(p);
+ if(!isLocalCoordinate(p.latitude,p.longitude)){
+  pinMsg('This property has no confirmed map coordinates. Select it in the Pinpoint Editor and place its marker manually.');
+  return;
+ }
+ const lat=Number(p.latitude),lon=Number(p.longitude);
+ // Recalculate the map's layout before moving, particularly inside an iframe or after a sidebar change.
+ map.invalidateSize({pan:false});
+ map.stop();
+ map.setView([lat,lon],zoom,{animate:false});
+ // Open the property at the exact stored coordinates, even if the marker is hidden by a filter.
+ L.popup({maxWidth:340,minWidth:240,autoPan:true,keepInView:true})
+  .setLatLng([lat,lon]).setContent(propertyCard(p)).openOn(map);
+ const popup=map.getPopup();if(popup&&popup.getElement())bindEditLocation(popup.getElement());
+}
+
 function splitCSV(line){let out=[],v='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(q&&line[i+1]==='"'){v+='"';i++}else q=!q}else if(c===','&&!q){out.push(v.trim());v=''}else v+=c}out.push(v.trim());return out}
 function normaliseHeader(x){return String(x||'').toLowerCase().trim().replace(/[ _-]+/g,'')}
 function parseCSV(text){const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)throw Error('The sheet has no data rows.');const raw=splitCSV(lines[0]);const aliases={id:['id','propertyid','ref','reference'],address:['address','propertyaddress','houseaddress'],postcode:['postcode','postalcode','zip'],latitude:['latitude','lat'],longitude:['longitude','lng','lon','long'],notes:['notes','note','comments','comment'],photos:['photos','photourls','photo','images','imageurls','photolinks']};const idx={};raw.forEach((h,i)=>{const n=normaliseHeader(h);for(const [key,vals] of Object.entries(aliases))if(vals.includes(n))idx[key]=i});if(idx.address===undefined)throw Error('Missing required column: Address.');const rows=[];lines.slice(1).forEach((line,i)=>{const a=splitCSV(line);if(!a.some(Boolean))return;const get=k=>idx[k]===undefined?'':(a[idx[k]]??'').trim();if(!get('address'))return;const lat=parseFloat(get('latitude')),lon=parseFloat(get('longitude'));rows.push({id:get('id')||String(rows.length+1).padStart(2,'0'),address:get('address'),postcode:get('postcode'),latitude:Number.isFinite(lat)?lat:null,longitude:Number.isFinite(lon)?lon:null,notes:get('notes'),photos:get('photos'),rowNumber:i+2})});if(!rows.length)throw Error('No usable property rows were found.');return rows}
@@ -170,12 +188,33 @@ properties=samples.map(x=>({...x}));render();loadRoute().then(()=>{if(cfg.useGoo
 // Manual pinpoints: explicit browser-local overrides, never silently written to Google Sheets.
 function storedPins(){try{return JSON.parse(localStorage.getItem(MANUAL_KEY)||'{}')}catch{return {}}}
 function pinKey(p){return String(p.id||'').trim()+'|'+String(p.address||'').trim().toLowerCase()}
+function matchSavedPin(p,pins){
+ const id=String(p.id||'').trim();
+ // Stable ID first, so a renamed street does not produce a duplicate property.
+ if(id){const found=Object.values(pins).find(v=>String(v.id||'').trim()===id);if(found)return found}
+ return pins[pinKey(p)];
+}
 function applyManualPins(){
- const pins=storedPins(), seen=new Set();
- properties.forEach(p=>{const k=pinKey(p);seen.add(k);if(pins[k]&&isLocalCoordinate(pins[k].latitude,pins[k].longitude)){
-  p.latitude=pins[k].latitude;p.longitude=pins[k].longitude;p.locationSource='manual';
- }});
- Object.entries(pins).forEach(([k,p])=>{if(!seen.has(k)&&isLocalCoordinate(p.latitude,p.longitude))properties.push({...p,locationSource:'manual'})});
+ const pins=storedPins(), matched=new Set();
+ properties.forEach(p=>{
+  const override=matchSavedPin(p,pins);
+  if(override){Object.assign(p,{address:override.address||p.address,postcode:override.postcode??p.postcode,notes:override.notes??p.notes});
+   if(isLocalCoordinate(override.latitude,override.longitude)){p.latitude=override.latitude;p.longitude=override.longitude;p.locationSource='manual'}
+   matched.add(pinKey(override));
+  }
+ });
+ Object.entries(pins).forEach(([key,p])=>{
+  if(!matched.has(key)&&!properties.some(v=>String(v.id||'')===String(p.id||'')&&p.id)&&isLocalCoordinate(p.latitude,p.longitude))properties.push({...p,locationSource:'manual'});
+ });
+}
+function persistProperty(original,updated){
+ const pins=storedPins(), oldKey=original?pinKey(original):null;
+ if(oldKey)delete pins[oldKey];
+ // Also discard stale entries for this ID to prevent reappearance on reload.
+ if(updated.id)for(const [key,value] of Object.entries(pins))if(String(value.id||'')===String(updated.id))delete pins[key];
+ pins[pinKey(updated)]={...updated};
+ localStorage.setItem(MANUAL_KEY,JSON.stringify(pins));
+ if(original)Object.assign(original,updated);else properties.push(updated);
 }
 function refreshPinOptions(){
  const sel=document.querySelector('#pinProperty');if(!sel)return;
@@ -195,7 +234,7 @@ function selectPropertyForEditing(index){
  document.querySelector('#pinAddress').value=p.address;
  document.querySelector('#pinPostcode').value=p.postcode||'';
  document.querySelector('#pinNotes').value=p.notes||'';
- if(isLocalCoordinate(p.latitude,p.longitude))map.setView([+p.latitude,+p.longitude],19);
+ if(isLocalCoordinate(p.latitude,p.longitude))focusProperty(p);
  pinMsg('Selected '+p.address+'. Click Place pinpoint on map to correct its location.');
  document.querySelector('#pinEditor').scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -208,7 +247,17 @@ function bindEditLocation(container){
 document.querySelector('#pinProperty').addEventListener('change',e=>{
  const p=properties[+e.target.value];if(e.target.value==='new'||!p){document.querySelector('#pinAddress').value='';document.querySelector('#pinPostcode').value='';document.querySelector('#pinNotes').value='';return}
  document.querySelector('#pinAddress').value=p.address;document.querySelector('#pinPostcode').value=p.postcode||'';document.querySelector('#pinNotes').value=p.notes||'';
- if(isLocalCoordinate(p.latitude,p.longitude))map.setView([+p.latitude,+p.longitude],18);
+ focusProperty(p);
+});
+document.querySelector('#saveDetails').addEventListener('click',()=>{
+ const chosen=document.querySelector('#pinProperty').value;
+ if(chosen==='new'){pinMsg('Select an existing property to edit its street name, or place a pinpoint for a new property.');return}
+ const original=properties[+chosen];if(!original)return;
+ const address=document.querySelector('#pinAddress').value.trim();
+ if(!address){pinMsg('Please enter the street address.');return}
+ const updated={...original,address,postcode:document.querySelector('#pinPostcode').value.trim(),notes:document.querySelector('#pinNotes').value.trim()};
+ try{persistProperty(original,updated)}catch(e){pinMsg('Could not save in this browser: '+e.message);return}
+ render();focusProperty(original);pinMsg('Street name and property details saved locally. Export CSV to update your Google Sheet.');
 });
 document.querySelector('#startPin').addEventListener('click',()=>{
  if(!document.querySelector('#pinAddress').value.trim()){pinMsg('Enter an address first.');return}
@@ -242,10 +291,8 @@ document.querySelector('#savePin').addEventListener('click',()=>{
  const original=chosen==='new'?null:properties[+chosen];
  const id=original?.id||'M'+Date.now().toString(36).toUpperCase();
  const p={...(original||{}),id,address,postcode,notes:document.querySelector('#pinNotes').value.trim(),latitude:+loc.lat.toFixed(7),longitude:+loc.lng.toFixed(7),locationSource:'manual'};
- if(original)Object.assign(original,p);else properties.push(p);
- const pins=storedPins();if(original&&pinKey(original)!==pinKey(p))delete pins[pinKey(original)];pins[pinKey(p)]=p;
- try{localStorage.setItem(MANUAL_KEY,JSON.stringify(pins))}catch{pinMsg('Browser storage failed. Download the CSV immediately.')}
- stopPin();render();showDetails(p);map.setView([p.latitude,p.longitude],18);
+ try{persistProperty(original,p)}catch(e){pinMsg('Browser storage failed: '+e.message);return}
+ stopPin();render();focusProperty(p);
  pinMsg('Pinpoint saved in this browser. Download CSV to back it up and share it.');
 });
 function csvCell(v){const s=String(v??'');return '"'+s.replace(/"/g,'""')+'"'}
