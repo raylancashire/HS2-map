@@ -26,3 +26,8 @@ Click an address in the Loaded Addresses list or choose a property in the Pinpoi
 
 ## Damage field (new)
 The Google Sheet's **Damage** column is loaded as free text. It is shown in property details, searched alongside addresses/notes, and included in CSV exports. Empty fields are labelled “No damage recorded” (not proof of no damage). Damage descriptions may include quoted line breaks. The pinpoint editor also allows a locally saved edit to the damage description; export CSV and update the Google Sheet to publish edits. Existing coordinates and photo links are preserved.
+
+## Address centering correction (9 October 2026)
+Clicking an address under Loaded addresses or selecting it in the Pinpoint Editor centres the map on its stored latitude/longitude at zoom level 19. The popup no longer auto-pans the map away from the pinpoint. The map also recalculates its size for Webador embeds.
+
+If an address still centres on the wrong building, check its coordinates in the popup: the map can only centre on the coordinates recorded in the spreadsheet or manual pinpoint overrides.

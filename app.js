@@ -102,14 +102,20 @@ function focusProperty(p,zoom=19){
   return;
  }
  const lat=Number(p.latitude),lon=Number(p.longitude);
- // Recalculate the map's layout before moving, particularly inside an iframe or after a sidebar change.
- map.invalidateSize({pan:false});
+ // Leaflet popup autoPan used to move the map away from the chosen pinpoint.
+ // Disable it so the selected house stays exactly in the map centre.
+ map.closePopup();
  map.stop();
- map.setView([lat,lon],zoom,{animate:false});
- // Open the property at the exact stored coordinates, even if the marker is hidden by a filter.
- L.popup({maxWidth:340,minWidth:240,autoPan:true,keepInView:true})
+ map.invalidateSize({pan:false});
+ map.setView(L.latLng(lat,lon),zoom,{animate:false,reset:true});
+ const popup=L.popup({maxWidth:340,minWidth:240,autoPan:false,keepInView:false})
   .setLatLng([lat,lon]).setContent(propertyCard(p)).openOn(map);
- const popup=map.getPopup();if(popup&&popup.getElement())bindEditLocation(popup.getElement());
+ if(popup.getElement())bindEditLocation(popup.getElement());
+ // Keep the pinpoint centred even when the map is inside a resizing Webador iframe.
+ requestAnimationFrame(()=>{
+  map.invalidateSize({pan:false});
+  map.panTo([lat,lon],{animate:false});
+ });
 }
 
 function splitCSV(line){let out=[],v='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(q&&line[i+1]==='"'){v+='"';i++}else q=!q}else if(c===','&&!q){out.push(v.trim());v=''}else v+=c}out.push(v.trim());return out}
