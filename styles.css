@@ -64,3 +64,11 @@ main>#map{height:100%;min-height:0;min-width:0;overflow:hidden;}
  main>aside{height:38vh;min-height:220px;max-height:38vh;overflow-y:auto;}
  main>#map{height:55vh;min-height:360px;flex:none;}
 }
+
+/* Hide editor/import controls on the public Webador embed, but keep them available in the standalone admin view. */
+.webador-public #csvImportControl,
+.webador-public #csvImportHelp,
+.webador-public #photoImportSection{display:none!important}
+
+/* Hide editing/import utilities regardless of URL, iframe parameters or caching. */
+#csvImportControl,#csvImportHelp,#photoImportSection{display:none!important}
