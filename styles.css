@@ -22,3 +22,9 @@
 #csvFallback{margin-top:10px}#csvFallback[hidden]{display:none}#csvText{display:block;width:100%;box-sizing:border-box;font-family:monospace;font-size:12px}
 #pinEditor textarea{width:100%;box-sizing:border-box;margin:4px 0 9px;padding:8px;border:1px solid #c8d1d9;border-radius:5px;font:inherit;resize:vertical}
 .damage-description{white-space:normal;overflow-wrap:anywhere}
+
+.property-gallery a{display:inline-flex;flex-direction:column;gap:3px;max-width:145px;text-decoration:none}.property-gallery a small{font-size:11px;color:#3b4852;overflow-wrap:anywhere}
+
+.hs2-webador-gallery{display:block;width:100%;background:#174a36;color:white;border:0;border-radius:5px;padding:10px 12px;margin:8px 0;cursor:pointer;font-weight:700}
+.webador-public .edit-location,.webador-public #pinpointEditor,.webador-public #photoIndexFile{display:none!important}
+.webador-public #pinEditor,.webador-public #photoIndexFile,.webador-public #csvFile,.webador-public #exportPins,.webador-public .edit-location,.webador-public .property-gallery,.webador-public .album-link{display:none!important}

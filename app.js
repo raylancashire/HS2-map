@@ -29,17 +29,12 @@ let zoneLayer=L.layerGroup();
 let corridorLayer=L.layerGroup().addTo(map);
 const markerLayer=L.layerGroup().addTo(map);
 let properties=[];
+let photoIndex=[];
+
 let placingPin=false, draftPin=null;
 const MANUAL_KEY="hs2qp:manual-pinpoints:v1";
 
 
-const samples=[
-['01','Sample property – Kilburn Lane','',51.5351,-0.2057,'Sample only'],['02','Sample property – Kilburn Lane','',51.5350,-0.2047,'Sample only'],['03','Sample property – Kilburn Lane','',51.5349,-0.2037,'Sample only'],['04','Sample property – Kilburn Lane','',51.5348,-0.2027,'Sample only'],
-['05','Sample property – Bravington Road','',51.5337,-0.2091,'Sample only'],['06','Sample property – Bravington Road','',51.5331,-0.2089,'Sample only'],['07','Sample property – Bravington Road','',51.5325,-0.2087,'Sample only'],['08','Sample property – Bravington Road','',51.5319,-0.2085,'Sample only'],
-['09','Sample property – Portnall Road','',51.5342,-0.2012,'Sample only'],['10','Sample property – Portnall Road','',51.5336,-0.2010,'Sample only'],['11','Sample property – Portnall Road','',51.5330,-0.2008,'Sample only'],['12','Sample property – Portnall Road','',51.5324,-0.2006,'Sample only'],
-['13','Sample property – Ashmore Road','',51.5325,-0.1969,'Sample only'],['14','Sample property – Ashmore Road','',51.5320,-0.1967,'Sample only'],['15','Sample property – Ashmore Road','',51.5315,-0.1965,'Sample only'],['16','Sample property – Ashmore Road','',51.5310,-0.1963,'Sample only'],
-['17','Sample property – Queen’s Park area','',51.5344,-0.2061,'Sample only'],['18','Sample property – Queen’s Park area','',51.5338,-0.2037,'Sample only'],['19','Sample property – Queen’s Park area','',51.5331,-0.1994,'Sample only'],['20','Sample property – Queen’s Park area','',51.5324,-0.1955,'Sample only']
-].map(r=>({id:r[0],address:r[1],postcode:r[2],latitude:r[3],longitude:r[4],notes:r[5]}));
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function toXY(lat,lon,refLat){const R=6371000,rad=Math.PI/180;return {x:lon*rad*R*Math.cos(refLat*rad),y:lat*rad*R}}
@@ -64,7 +59,7 @@ function render(){
   m.bindTooltip(`${esc(p.address)} — ${Number.isFinite(p.distance)?Math.round(p.distance)+' m (estimated)':'distance unavailable'}`);
   m.on('click',()=>{if(!placingPin)showDetails(p)});
   m.bindPopup(()=>propertyCard(p),{maxWidth:340,minWidth:240});
-  m.on('popupopen',e=>bindEditLocation(e.popup.getElement()));
+  m.on('popupopen',e=>{bindEditLocation(e.popup.getElement());bindPhotoButtons(e.popup.getElement());});
  });
  const known=properties.filter(p=>Number.isFinite(p.distance)).length;
  document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Estimated tunnel distances: ${known} · Unavailable: ${properties.length-known}`;
@@ -79,21 +74,64 @@ function renderPropertyList(q='',filter='all'){
   el.querySelectorAll('.property-row').forEach(b=>b.addEventListener('click',()=>focusProperty(properties[+b.dataset.i])));
 }
 
-function safePhotoUrls(p){
- const raw=String(p.photos||'').trim();
- return raw.split(/[|;\n]+/).map(x=>x.trim()).filter(x=>{try{const u=new URL(x);return u.protocol==='https:';}catch{return false;}}).slice(0,12);
+function normaliseStreet(s){return String(s||'').toLowerCase().replace(/[’']/g, "'").replace(/\b(street|st\.?)(?=\W|$)/g,'street').replace(/\b(road|rd\.?)(?=\W|$)/g,'road').replace(/\b(avenue|ave\.?)(?=\W|$)/g,'avenue').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ')}
+function matchingCaption(caption,address){
+ const c=normaliseStreet(caption),a=normaliseStreet(address);
+ if(!a||!c.startsWith(a))return false;
+ const rest=c.slice(a.length).trim();
+ // Require a word boundary; prevent 23 Parry Road matching 230 Parry Road.
+ return !rest||rest.startsWith('front')||rest.startsWith('rear')||rest.startsWith('side')||rest.startsWith('crack')||rest.startsWith('damage')||rest.startsWith('wall')||rest.startsWith('window')||rest.startsWith('door')||rest.startsWith('roof')||rest.startsWith('external')||rest.startsWith('internal')||rest.startsWith('elevation')||rest.startsWith('photo')||rest.startsWith('view')||rest.startsWith('subsidence')||rest.startsWith('movement')||rest.startsWith('garden')||rest.startsWith('brick')||rest.startsWith('ceiling')||rest.startsWith('floor')||rest.startsWith('foundation')||rest.startsWith('chimney')||rest.startsWith('boundary');
 }
+function photoEntries(p){
+ const result=[];
+ for(const url of String(p.photos||'').split(/[|;\n]+/).map(x=>x.trim())){
+  try{if(new URL(url).protocol==='https:')result.push({url,caption:p.address})}catch{}
+ }
+ for(const item of photoIndex){
+  if(matchingCaption(item.caption,p.address))result.push(item);
+ }
+ return [...new Map(result.map(x=>[x.url,x])).values()].slice(0,24);
+}
+function safePhotoUrls(p){return photoEntries(p).map(x=>x.url)}
+function parsePhotoIndex(csv){
+ const lines=csvRecords(csv.replace(/^\uFEFF/,''));if(!lines.length)return [];
+ const headers=splitCSV(lines[0]).map(normaliseHeader);
+ const ci=headers.indexOf('caption'),ui=headers.findIndex(h=>['imageurl','photourl','url'].includes(h));
+ if(ci<0||ui<0)throw Error('Photo index needs Caption and Image URL columns');
+ return lines.slice(1).map(line=>{const v=splitCSV(line);return {caption:(v[ci]||'').trim(),url:(v[ui]||'').trim()}}).filter(x=>{try{return !!x.caption&&new URL(x.url).protocol==='https:'}catch{return false}});
+}
+async function loadPhotoIndex(){
+ try{
+  const response=await fetch('photo-index.csv?v='+Date.now(),{cache:'no-store'});
+  if(!response.ok)throw Error('HTTP '+response.status);
+  photoIndex=parsePhotoIndex(await response.text());
+  photoIndexStatus(`${photoIndex.length} indexed photographs loaded.`);
+ }catch(e){photoIndexStatus('No photograph index loaded. Shared Webador album link remains available.');}
+ render();
+}
+function photoIndexStatus(message){const el=document.querySelector('#photoIndexStatus');if(el)el.textContent=message}
 function photoAlbumLink(){
  const url=String(cfg.propertyPhotoAlbumUrl||'').trim();
  try{const u=new URL(url);if(u.protocol!=='https:')return '';return `<p class="album-link"><a href="${esc(u.href)}" target="_blank" rel="noopener noreferrer">View Property Photographs ↗</a></p>`;}catch{return '';}
 }
+function requestWebadorPhotos(address){
+ // The parent Webador page checks the iframe source before opening its album viewer.
+ if(window.parent===window){alert('Open the map on its Webador page to view the linked album.');return;}
+ window.parent.postMessage({type:'hs2-qpt-open-photos',address:String(address||'')},'*');
+}
+function bindPhotoButtons(scope){
+ if(!scope)return;
+ scope.querySelectorAll('.hs2-webador-gallery').forEach(button=>{
+  button.addEventListener('click',()=>requestWebadorPhotos(button.dataset.address));
+ });
+}
 function propertyCard(p){
  const distance=Number.isFinite(p.distance)?Math.round(p.distance)+' metres (estimated)':'Not available';
- const photos=safePhotoUrls(p);
- const gallery=photos.length?`<div class="property-gallery">${photos.map((url,i)=>`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="Open property photo ${i+1}"><img src="${esc(url)}" alt="Photo ${i+1} associated with ${esc(p.address)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"></a>`).join('')}</div>`:'<p class="hint">No photographs linked to this property.</p>';
- return `<div class="property-card"><h3>${esc(p.address)}</h3><p><strong>Location:</strong> ${esc(p.address)}${p.postcode?', '+esc(p.postcode):''}</p><p><strong>Property ID:</strong> ${esc(p.id)}</p><p><strong>Distance from tunnel:</strong> ${distance}</p><p><strong>Coordinates:</strong> ${Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)?Number(p.latitude).toFixed(6)+', '+Number(p.longitude).toFixed(6):'Unavailable'}</p>${p.notes?`<p>${esc(p.notes)}</p>`:''}<h4>Damage recorded</h4><p class="damage-description">${p.damage?esc(p.damage).replace(/\r?\n/g,'<br>'):'No damage recorded'}</p><h4>Associated photographs</h4>${gallery}${photoAlbumLink()}<button type="button" class="edit-location" data-property-id="${esc(p.id)}" data-property-address="${esc(p.address)}">Edit location on map</button><p class="hint">Tunnel geometry is provisional. Distance is horizontal and does not establish eligibility or safeguarding status.</p></div>`;
+ const photos=photoEntries(p);
+ const gallery=photos.length?`<div class="property-gallery">${photos.map((photo,i)=>`<a href="${esc(photo.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open property photo ${i+1}: ${esc(photo.caption)}"><img src="${esc(photo.url)}" alt="${esc(photo.caption)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"><small>${esc(photo.caption)}</small></a>`).join('')}</div>`:'<p class="hint">No indexed photographs for this property yet.</p>';
+ return `<div class="property-card"><h3>${esc(p.address)}</h3><p><strong>Location:</strong> ${esc(p.address)}${p.postcode?', '+esc(p.postcode):''}</p><p><strong>Property ID:</strong> ${esc(p.id)}</p><p><strong>Distance from tunnel:</strong> ${distance}</p><p><strong>Coordinates:</strong> ${Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)?Number(p.latitude).toFixed(6)+', '+Number(p.longitude).toFixed(6):'Unavailable'}</p>${p.notes?`<p>${esc(p.notes)}</p>`:''}<h4>Damage recorded</h4><p class="damage-description">${p.damage?esc(p.damage).replace(/\r?\n/g,'<br>'):'No damage recorded'}</p><h4>Associated photographs</h4><button type="button" class="hs2-webador-gallery" data-address="${esc(p.address)}">View property photographs</button><p class="hint">Opens the Webador album viewer when displayed on the QPT website.</p>${gallery}${photoAlbumLink()}<button type="button" class="edit-location" data-property-id="${esc(p.id)}" data-property-address="${esc(p.address)}">Edit location on map</button><p class="hint">Tunnel geometry is provisional. Distance is horizontal and does not establish eligibility or safeguarding status.</p></div>`;
 }
-function showDetails(p){document.querySelector('#details').innerHTML='<h2>Selected property</h2>'+propertyCard(p);bindEditLocation(document.querySelector('#details'))}
+function showDetails(p){document.querySelector('#details').innerHTML='<h2>Selected property</h2>'+propertyCard(p);bindEditLocation(document.querySelector('#details'));bindPhotoButtons(document.querySelector('#details'))}
 function focusProperty(p,zoom=19){
  if(!p)return;
  showDetails(p);
@@ -110,7 +148,7 @@ function focusProperty(p,zoom=19){
  map.setView(L.latLng(lat,lon),zoom,{animate:false,reset:true});
  const popup=L.popup({maxWidth:340,minWidth:240,autoPan:false,keepInView:false})
   .setLatLng([lat,lon]).setContent(propertyCard(p)).openOn(map);
- if(popup.getElement())bindEditLocation(popup.getElement());
+ if(popup.getElement()){bindEditLocation(popup.getElement());bindPhotoButtons(popup.getElement());}
  // Keep the pinpoint centred even when the map is inside a resizing Webador iframe.
  requestAnimationFrame(()=>{
   map.invalidateSize({pan:false});
@@ -138,7 +176,7 @@ function showUnresolved(failed){const el=document.querySelector('#unresolved');i
 function setDataStatus(message,kind=''){const el=document.querySelector('#dataStatus');el.textContent=message;el.className='data-status '+kind}
 function sheetCsvUrl(){return cfg.spreadsheetId?`https://docs.google.com/spreadsheets/d/${encodeURIComponent(cfg.spreadsheetId)}/export?format=csv&gid=${encodeURIComponent(cfg.sheetGid||'0')}`:''}
 function fitAll(){const pts=validProperties().map(p=>[+p.latitude,+p.longitude]);if(pts.length===1)map.setView(pts[0],17);else if(pts.length>1)map.fitBounds(pts,{padding:[60,60],maxZoom:17});else map.setView([51.5340,-0.2050],15.2);setTimeout(()=>map.invalidateSize(true),50)}
-async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());applyManualPins();const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=samples.map(x=>({...x}));render();setDataStatus(`Google Sheet could not be loaded: ${err.message} Showing 20 sample properties instead.`,'error')}}
+async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());applyManualPins();const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=[];render();showUnresolved([]);setDataStatus(`Google Sheet could not be loaded: ${err.message}. No sample properties are displayed. Check Sheet sharing or import a CSV.`, 'error')}}
 async function loadRoute(){
   tunnelLayer.clearLayers(); zoneLayer.clearLayers(); corridorLayer.clearLayers(); routeLines=[];
   try{
@@ -176,7 +214,6 @@ document.querySelector('#search').addEventListener('input',render);document.quer
 document.querySelector('#showCorridor').addEventListener('change',e=>e.target.checked?corridorLayer.addTo(map):map.removeLayer(corridorLayer));
 document.querySelector('#showTunnel').addEventListener('change',e=>e.target.checked?tunnelLayer.addTo(map):map.removeLayer(tunnelLayer));document.querySelector('#showZone').addEventListener('change',e=>e.target.checked?zoneLayer.addTo(map):map.removeLayer(zoneLayer));document.querySelector('#showHouses').addEventListener('change',e=>e.target.checked?markerLayer.addTo(map):map.removeLayer(markerLayer));
 document.querySelector('#reloadSheet').addEventListener('click',loadGoogleSheet);
-document.querySelector('#restore').addEventListener('click',()=>{properties=samples.map(x=>({...x}));document.querySelector('#csvFile').value='';render();fitAll();setDataStatus('Showing 20 sample properties.','')});
 document.querySelector('#csvFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{properties=parseCSV(await f.text());applyManualPins();const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from local CSV · ${validProperties().length} located.`,'ok')}catch(err){alert('Could not import CSV: '+err.message);e.target.value=''}});
 // Browsers can restore old form selections after a GitHub Pages refresh. Force a
 // predictable startup state so newly loaded properties are never hidden.
@@ -190,7 +227,7 @@ document.querySelector('#showHouses').checked=true;
 document.querySelector('#showTunnel').checked=true;
 document.querySelector('#showZone').checked=false;
 document.querySelector('#showCorridor').checked=true;
-properties=samples.map(x=>({...x}));render();loadRoute().then(()=>{if(cfg.useGoogleSheet!==false)loadGoogleSheet();else setDataStatus('Google Sheet loading is disabled; showing sample properties.','')});
+properties=[];render();loadRoute().then(()=>{if(cfg.useGoogleSheet!==false)loadGoogleSheet();else setDataStatus('Google Sheet loading is disabled. Import a CSV to display properties.','')});
 
 
 // Manual pinpoints: explicit browser-local overrides, never silently written to Google Sheets.
@@ -333,3 +370,11 @@ document.querySelector('#copyCsv').addEventListener('click',async()=>{
  try{await navigator.clipboard.writeText(t.value);pinMsg('CSV copied. Paste it into a text file or spreadsheet.');}
  catch(e){t.focus();t.select();pinMsg('Press Command+C to copy the selected CSV, then paste into a text file or spreadsheet.');}
 });
+
+// Optional import: CSV made from the Webador captions and direct photo image URLs.
+document.querySelector('#photoIndexFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{photoIndex=parsePhotoIndex(await file.text());photoIndexStatus(`${photoIndex.length} photographs indexed from local CSV (this browser session only). Upload photo-index.csv to GitHub to publish.`);render();}
+ catch(err){photoIndexStatus('Could not read photograph index: '+err.message)}
+});
+loadPhotoIndex();
