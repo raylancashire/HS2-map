@@ -74,6 +74,23 @@ function render(){
 
 // Remember expanded streets when search/filter updates the address list.
 const expandedStreets=new Set();
+// Only located addresses belonging to currently expanded streets control the view.
+// Closing the last street leaves the existing map view untouched.
+function fitExpandedStreetAddresses(){
+ const openGroups=[...document.querySelectorAll('#propertyList .street-group[open]')];
+ if(!openGroups.length)return;
+ const indices=openGroups.flatMap(group=>[...group.querySelectorAll('.property-row[data-i]')].map(b=>Number(b.dataset.i)));
+ const points=indices.map(i=>properties[i]).filter(p=>p&&isLocalCoordinate(p.latitude,p.longitude))
+   .map(p=>[Number(p.latitude),Number(p.longitude)]);
+ if(!points.length)return;
+ openingFitActive=false;
+ if(openingFitObserver){openingFitObserver.disconnect();openingFitObserver=null;}
+ clearTimeout(openingFitTimer);
+ map.closePopup();map.stop();map.invalidateSize({pan:false});
+ if(points.length===1)map.setView(points[0],17,{animate:true});
+ else map.fitBounds(L.latLngBounds(points),{padding:[45,45],maxZoom:17,animate:true});
+}
+
 function addressParts(address){
  const value=String(address||'').trim().replace(/\s+/g,' ');
  // Number + optional suffix, then street. Keep non-numbered addresses in a group.
@@ -100,9 +117,15 @@ function renderPropertyList(q='',filter='all'){
   const opened=expandedStreets.has(key)||Boolean(q);
   return `<details class="street-group" data-street="${esc(key)}" ${opened?'open':''}><summary>${esc(group.street)} <span class="street-count">${group.items.length}</span></summary><div class="street-addresses">${group.items.map(({p})=>`<button type="button" class="property-row" data-i="${properties.indexOf(p)}"><strong>${esc(p.address)}</strong><span>${esc(p.postcode||'')}${p.id?' · ID '+esc(p.id):''}</span></button>`).join('')}</div></details>`;
  }).join('')||'<p class="hint">No matching addresses.</p>';
- el.querySelectorAll('.street-group').forEach(group=>group.addEventListener('toggle',()=>{
+ // Respond to user interaction, not browser-generated initial <details> toggle events.
+ el.querySelectorAll('.street-group > summary').forEach(summary=>summary.addEventListener('click',()=>{
+  const group=summary.parentElement;
   const key=group.dataset.street;
-  if(group.open)expandedStreets.add(key);else expandedStreets.delete(key);
+  // Native details toggles after click; update once its open state has changed.
+  setTimeout(()=>{
+   if(group.open)expandedStreets.add(key);else expandedStreets.delete(key);
+   fitExpandedStreetAddresses();
+  },0);
  }));
  el.querySelectorAll('.property-row').forEach(button=>button.addEventListener('click',()=>focusProperty(properties[+button.dataset.i])));
 }
