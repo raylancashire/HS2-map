@@ -43,3 +43,30 @@
 .street-count{float:right;font-size:12px;font-weight:600;color:#536678;background:#fff;border-radius:12px;padding:1px 7px}
 .street-addresses{padding:4px 8px 9px}
 .street-addresses .property-row{width:100%;margin-top:5px}
+
+/* No-damage points: slightly smaller and visually quieter, retaining black edge. */
+.house-marker.no-damage{width:9px;height:9px;border:1px solid #343434;opacity:.72;box-shadow:0 0 1px #0004}
+
+/* Smaller, quieter no-damage dots; centred in the existing 12px marker slot. */
+.house-marker.no-damage{
+  width:7px;
+  height:7px;
+  border:1px solid #707780;
+  opacity:.48;
+  box-shadow:none;
+  transform:translate(2.5px,2.5px);
+}
+
+/* Independent scrolling: the sidebar scrolls; the map remains in its own pane. */
+html,body{height:100%;}
+body{display:flex;flex-direction:column;min-height:100%;overflow:hidden;}
+header,footer{flex:0 0 auto;}
+main{flex:1 1 auto;min-height:0;height:auto;overflow:hidden;grid-template-columns:minmax(260px,320px) minmax(0,1fr);}
+main>aside{min-height:0;max-height:100%;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+main>#map{height:100%;min-height:0;min-width:0;overflow:hidden;}
+@media(max-width:760px){
+ body{overflow:auto;min-height:100%;height:auto;}
+ main{display:flex;flex-direction:column;min-height:0;overflow:visible;height:auto;}
+ main>aside{height:38vh;min-height:220px;max-height:38vh;overflow-y:auto;}
+ main>#map{height:55vh;min-height:360px;flex:none;}
+}

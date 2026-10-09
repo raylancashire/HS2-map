@@ -70,9 +70,9 @@ function render(){
 // Remember expanded streets when search/filter updates the address list.
 const expandedStreets=new Set();
 function addressParts(address){
- const value=String(address||'').trim().replace(/\\s+/g,' ');
+ const value=String(address||'').trim().replace(/\s+/g,' ');
  // Number + optional suffix, then street. Keep non-numbered addresses in a group.
- const match=value.match(/^(\\d+)\\s*([a-z]?)\\s+(.+)$/i);
+ const match=value.match(/^(\d+)\s*([a-z]?)\s+(.+)$/i);
  if(!match)return {street:value||'Other addresses',number:-1,suffix:'',label:value};
  return {street:match[3].trim(),number:Number(match[1]),suffix:match[2].toLowerCase(),label:value};
 }
