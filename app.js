@@ -67,11 +67,39 @@ function render(){
  refreshPinOptions();
 }
 
+// Remember expanded streets when search/filter updates the address list.
+const expandedStreets=new Set();
+function addressParts(address){
+ const value=String(address||'').trim().replace(/\\s+/g,' ');
+ // Number + optional suffix, then street. Keep non-numbered addresses in a group.
+ const match=value.match(/^(\\d+)\\s*([a-z]?)\\s+(.+)$/i);
+ if(!match)return {street:value||'Other addresses',number:-1,suffix:'',label:value};
+ return {street:match[3].trim(),number:Number(match[1]),suffix:match[2].toLowerCase(),label:value};
+}
 function renderPropertyList(q='',filter='all'){
-  const el=document.querySelector('#propertyList'); if(!el)return;
-  const rows=properties.filter(p=>{const text=`${p.id} ${p.address} ${p.postcode||''} ${p.damage||''} ${p.notes||''}`.toLowerCase();return (!q||text.includes(q))&&(filter==='all'||(filter==='very-close'&&p.distance<=15)||(filter==='within-30'&&p.distance>15&&p.distance<=30)||(filter==='outside-30'&&p.distance>30))});
-  el.innerHTML=rows.map((p,i)=>`<button class="property-row" data-i="${properties.indexOf(p)}"><strong>${esc(p.address)}</strong><span>${esc(p.postcode||'')}${p.id?' · ID '+esc(p.id):''}</span></button>`).join('');
-  el.querySelectorAll('.property-row').forEach(b=>b.addEventListener('click',()=>focusProperty(properties[+b.dataset.i])));
+ const el=document.querySelector('#propertyList');if(!el)return;
+ const rows=properties.filter(p=>{
+  const text=`${p.id} ${p.address} ${p.postcode||''} ${p.damage||''} ${p.notes||''}`.toLowerCase();
+  return (!q||text.includes(q))&&(filter==='all'||(filter==='very-close'&&p.distance<=15)||(filter==='within-30'&&p.distance>15&&p.distance<=30)||(filter==='outside-30'&&p.distance>30));
+ });
+ const groups=new Map();
+ rows.forEach(p=>{
+  const parts=addressParts(p.address);
+  const key=parts.street.toLocaleLowerCase('en-GB');
+  if(!groups.has(key))groups.set(key,{street:parts.street,items:[]});
+  groups.get(key).items.push({p,parts});
+ });
+ const ordered=[...groups.entries()].sort((a,b)=>a[1].street.localeCompare(b[1].street,'en-GB',{numeric:true,sensitivity:'base'}));
+ el.innerHTML=ordered.map(([key,group])=>{
+  group.items.sort((a,b)=>a.parts.number-b.parts.number||a.parts.suffix.localeCompare(b.parts.suffix)||a.parts.label.localeCompare(b.parts.label,'en-GB',{numeric:true}));
+  const opened=expandedStreets.has(key)||Boolean(q);
+  return `<details class="street-group" data-street="${esc(key)}" ${opened?'open':''}><summary>${esc(group.street)} <span class="street-count">${group.items.length}</span></summary><div class="street-addresses">${group.items.map(({p})=>`<button type="button" class="property-row" data-i="${properties.indexOf(p)}"><strong>${esc(p.address)}</strong><span>${esc(p.postcode||'')}${p.id?' · ID '+esc(p.id):''}</span></button>`).join('')}</div></details>`;
+ }).join('')||'<p class="hint">No matching addresses.</p>';
+ el.querySelectorAll('.street-group').forEach(group=>group.addEventListener('toggle',()=>{
+  const key=group.dataset.street;
+  if(group.open)expandedStreets.add(key);else expandedStreets.delete(key);
+ }));
+ el.querySelectorAll('.property-row').forEach(button=>button.addEventListener('click',()=>focusProperty(properties[+button.dataset.i])));
 }
 
 function normaliseStreet(s){return String(s||'').toLowerCase().replace(/[’']/g, "'").replace(/\b(street|st\.?)(?=\W|$)/g,'street').replace(/\b(road|rd\.?)(?=\W|$)/g,'road').replace(/\b(avenue|ave\.?)(?=\W|$)/g,'avenue').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ')}
@@ -200,19 +228,37 @@ function showUnresolved(failed){const el=document.querySelector('#unresolved');i
 
 function setDataStatus(message,kind=''){const el=document.querySelector('#dataStatus');el.textContent=message;el.className='data-status '+kind}
 function sheetCsvUrl(){return cfg.spreadsheetId?`https://docs.google.com/spreadsheets/d/${encodeURIComponent(cfg.spreadsheetId)}/export?format=csv&gid=${encodeURIComponent(cfg.sheetGid||'0')}`:''}
+// Fit the opening view to all located properties, including when the Webador
+// iframe changes dimensions after the map has loaded.
+let openingFitActive=true;
+let openingFitObserver=null;
+let openingFitTimer=null;
 function fitAll(){
- const pts=validProperties().map(p=>[+p.latitude,+p.longitude]);
- // Centre the initial view on the complete collection of located property pins.
- // Recalculate after layout has settled (important when embedded in Webador).
- const centrePins=()=>{
-   map.invalidateSize({pan:false});
+ const pts=validProperties().map(p=>[Number(p.latitude),Number(p.longitude)]);
+ if(!pts.length)return;
+ openingFitActive=true;
+ const bounds=L.latLngBounds(pts);
+ const applyFit=()=>{
+   if(!openingFitActive)return;
+   const el=map.getContainer();
+   if(el.clientWidth<100||el.clientHeight<100)return;
+   map.invalidateSize({pan:false,debounceMoveend:true});
    if(pts.length===1)map.setView(pts[0],17,{animate:false});
-   else if(pts.length>1)map.fitBounds(L.latLngBounds(pts),{paddingTopLeft:[55,55],paddingBottomRight:[55,55],maxZoom:16.5,animate:false});
-   else map.setView([51.5340,-0.2050],15.2,{animate:false});
+   else map.fitBounds(bounds,{
+     paddingTopLeft:[35,35],paddingBottomRight:[35,35],
+     maxZoom:16,animate:false
+   });
  };
- centrePins();
- requestAnimationFrame(()=>requestAnimationFrame(centrePins));
- setTimeout(centrePins,400);
+ if(openingFitObserver)openingFitObserver.disconnect();
+ clearTimeout(openingFitTimer);
+ applyFit();
+ requestAnimationFrame(()=>requestAnimationFrame(applyFit));
+ openingFitObserver=new ResizeObserver(()=>{if(openingFitActive)applyFit();});
+ openingFitObserver.observe(map.getContainer());
+ openingFitTimer=setTimeout(()=>{
+   applyFit();openingFitActive=false;
+   openingFitObserver.disconnect();openingFitObserver=null;
+ },2500);
 }
 async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());applyManualPins();const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=[];render();showUnresolved([]);setDataStatus(`Google Sheet could not be loaded: ${err.message}. No sample properties are displayed. Check Sheet sharing or import a CSV.`, 'error')}}
 async function loadRoute(){
