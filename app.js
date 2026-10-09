@@ -46,7 +46,7 @@ function isUnaffected(p){
  return /^(?:unaffected|non[ -]?affected|no damage(?: recorded)?|no visible damage|none|nil)[.!\s]*$/i.test(String(p.damage||'').trim());
 }
 function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}${!String(p.damage||'').trim()||/^(no damage|none|nil|no damage recorded|no visible damage|non-affected|non affected|unaffected)[.!\s]*$/i.test(String(p.damage).trim())?' no-damage':''}" aria-label="${esc(p.address)}"></span>`,iconSize:[12,12],iconAnchor:[6,6]})}
-function render(){
+function render(skipList=false){
  markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;
  let visible=0;
  properties.forEach(p=>{
@@ -59,6 +59,10 @@ function render(){
   if(filter==='very-close'&&!(p.distance<=15))return;
   if(filter==='within-30'&&!(p.distance>15&&p.distance<=30))return;
   if(filter==='outside-30'&&!(p.distance>30))return;
+  // If any street disclosure is expanded, display markers only for those streets.
+  // With no expanded streets, retain the normal overview of all matching properties.
+  const streetKey=addressParts(p.address).street.toLocaleLowerCase('en-GB');
+  if(expandedStreets.size&&!expandedStreets.has(streetKey))return;
   visible++;
   const m=L.marker([+p.latitude,+p.longitude],{icon:iconFor(p)}).addTo(markerLayer);
   m.bindTooltip(`${esc(p.address)} — ${Number.isFinite(p.distance)?Math.round(p.distance)+' m (estimated)':'distance unavailable'}`);
@@ -68,9 +72,11 @@ function render(){
  });
  const known=properties.filter(p=>Number.isFinite(p.distance)).length;
  document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Estimated tunnel distances: ${known} · Unavailable: ${properties.length-known}`;
- renderPropertyList(q,filter);
+ if(!skipList)renderPropertyList(q,filter);
  refreshPinOptions();
 }
+
+function refreshStreetMarkers(){render(true)}
 
 // Remember expanded streets when search/filter updates the address list.
 const expandedStreets=new Set();
@@ -124,6 +130,8 @@ function renderPropertyList(q='',filter='all'){
   // Native details toggles after click; update once its open state has changed.
   setTimeout(()=>{
    if(group.open)expandedStreets.add(key);else expandedStreets.delete(key);
+   // Refresh markers without rebuilding the disclosures under the pointer.
+   refreshStreetMarkers();
    fitExpandedStreetAddresses();
   },0);
  }));
