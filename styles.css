@@ -41,7 +41,7 @@
 .street-addresses{padding:4px 8px 9px}
 .street-addresses .property-row{width:100%;margin-top:5px}
 
-/* Same-size property dots. Dark border = no damage recorded; white border = cracks/damage recorded. */
+/* Same-size property dots. Dark border = non-affected; white border = cracks/damage recorded. */
 .house-marker.no-damage{
   width:12px;
   height:12px;
