@@ -54,7 +54,7 @@ function render(){
   p.distance=isLocalCoordinate(p.latitude,p.longitude)?tunnelDistance(+p.latitude,+p.longitude):NaN;
   p.status=classify(p.distance);
   if(!isLocalCoordinate(p.latitude,p.longitude))return;
-  const text=`${p.id} ${p.address} ${p.postcode||''}`.toLowerCase();
+  const text=`${p.id} ${p.address} ${p.postcode||''} ${p.damage||''} ${p.notes||''}`.toLowerCase();
   if(q&&!text.includes(q))return;
   if(filter==='very-close'&&!(p.distance<=15))return;
   if(filter==='within-30'&&!(p.distance>15&&p.distance<=30))return;
@@ -74,7 +74,7 @@ function render(){
 
 function renderPropertyList(q='',filter='all'){
   const el=document.querySelector('#propertyList'); if(!el)return;
-  const rows=properties.filter(p=>{const text=`${p.id} ${p.address} ${p.postcode||''}`.toLowerCase();return (!q||text.includes(q))&&(filter==='all'||(filter==='very-close'&&p.distance<=15)||(filter==='within-30'&&p.distance>15&&p.distance<=30)||(filter==='outside-30'&&p.distance>30))});
+  const rows=properties.filter(p=>{const text=`${p.id} ${p.address} ${p.postcode||''} ${p.damage||''} ${p.notes||''}`.toLowerCase();return (!q||text.includes(q))&&(filter==='all'||(filter==='very-close'&&p.distance<=15)||(filter==='within-30'&&p.distance>15&&p.distance<=30)||(filter==='outside-30'&&p.distance>30))});
   el.innerHTML=rows.map((p,i)=>`<button class="property-row" data-i="${properties.indexOf(p)}"><strong>${esc(p.address)}</strong><span>${esc(p.postcode||'')}${p.id?' · ID '+esc(p.id):''}</span></button>`).join('');
   el.querySelectorAll('.property-row').forEach(b=>b.addEventListener('click',()=>focusProperty(properties[+b.dataset.i])));
 }
@@ -91,7 +91,7 @@ function propertyCard(p){
  const distance=Number.isFinite(p.distance)?Math.round(p.distance)+' metres (estimated)':'Not available';
  const photos=safePhotoUrls(p);
  const gallery=photos.length?`<div class="property-gallery">${photos.map((url,i)=>`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="Open property photo ${i+1}"><img src="${esc(url)}" alt="Photo ${i+1} associated with ${esc(p.address)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"></a>`).join('')}</div>`:'<p class="hint">No photographs linked to this property.</p>';
- return `<div class="property-card"><h3>${esc(p.address)}</h3><p><strong>Location:</strong> ${esc(p.address)}${p.postcode?', '+esc(p.postcode):''}</p><p><strong>Property ID:</strong> ${esc(p.id)}</p><p><strong>Distance from tunnel:</strong> ${distance}</p><p><strong>Coordinates:</strong> ${Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)?Number(p.latitude).toFixed(6)+', '+Number(p.longitude).toFixed(6):'Unavailable'}</p>${p.notes?`<p>${esc(p.notes)}</p>`:''}<h4>Associated photographs</h4>${gallery}${photoAlbumLink()}<button type="button" class="edit-location" data-property-id="${esc(p.id)}" data-property-address="${esc(p.address)}">Edit location on map</button><p class="hint">Tunnel geometry is provisional. Distance is horizontal and does not establish eligibility or safeguarding status.</p></div>`;
+ return `<div class="property-card"><h3>${esc(p.address)}</h3><p><strong>Location:</strong> ${esc(p.address)}${p.postcode?', '+esc(p.postcode):''}</p><p><strong>Property ID:</strong> ${esc(p.id)}</p><p><strong>Distance from tunnel:</strong> ${distance}</p><p><strong>Coordinates:</strong> ${Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)?Number(p.latitude).toFixed(6)+', '+Number(p.longitude).toFixed(6):'Unavailable'}</p>${p.notes?`<p>${esc(p.notes)}</p>`:''}<h4>Damage recorded</h4><p class="damage-description">${p.damage?esc(p.damage).replace(/\r?\n/g,'<br>'):'No damage recorded'}</p><h4>Associated photographs</h4>${gallery}${photoAlbumLink()}<button type="button" class="edit-location" data-property-id="${esc(p.id)}" data-property-address="${esc(p.address)}">Edit location on map</button><p class="hint">Tunnel geometry is provisional. Distance is horizontal and does not establish eligibility or safeguarding status.</p></div>`;
 }
 function showDetails(p){document.querySelector('#details').innerHTML='<h2>Selected property</h2>'+propertyCard(p);bindEditLocation(document.querySelector('#details'))}
 function focusProperty(p,zoom=19){
@@ -113,8 +113,10 @@ function focusProperty(p,zoom=19){
 }
 
 function splitCSV(line){let out=[],v='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(q&&line[i+1]==='"'){v+='"';i++}else q=!q}else if(c===','&&!q){out.push(v.trim());v=''}else v+=c}out.push(v.trim());return out}
+// Preserve quoted line breaks in free-text fields such as Damage.
+function csvRecords(text){let records=[],start=0,quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"')i++;else quoted=!quoted;}else if((c==='\n'||c==='\r')&&!quoted){const line=text.slice(start,i);if(line.trim())records.push(line);if(c==='\r'&&text[i+1]==='\n')i++;start=i+1;}}const last=text.slice(start);if(last.trim())records.push(last);return records;}
 function normaliseHeader(x){return String(x||'').toLowerCase().trim().replace(/[ _-]+/g,'')}
-function parseCSV(text){const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)throw Error('The sheet has no data rows.');const raw=splitCSV(lines[0]);const aliases={id:['id','propertyid','ref','reference'],address:['address','propertyaddress','houseaddress'],postcode:['postcode','postalcode','zip'],latitude:['latitude','lat'],longitude:['longitude','lng','lon','long'],notes:['notes','note','comments','comment'],photos:['photos','photourls','photo','images','imageurls','photolinks']};const idx={};raw.forEach((h,i)=>{const n=normaliseHeader(h);for(const [key,vals] of Object.entries(aliases))if(vals.includes(n))idx[key]=i});if(idx.address===undefined)throw Error('Missing required column: Address.');const rows=[];lines.slice(1).forEach((line,i)=>{const a=splitCSV(line);if(!a.some(Boolean))return;const get=k=>idx[k]===undefined?'':(a[idx[k]]??'').trim();if(!get('address'))return;const lat=parseFloat(get('latitude')),lon=parseFloat(get('longitude'));rows.push({id:get('id')||String(rows.length+1).padStart(2,'0'),address:get('address'),postcode:get('postcode'),latitude:Number.isFinite(lat)?lat:null,longitude:Number.isFinite(lon)?lon:null,notes:get('notes'),photos:get('photos'),rowNumber:i+2})});if(!rows.length)throw Error('No usable property rows were found.');return rows}
+function parseCSV(text){const lines=csvRecords(text.replace(/^\uFEFF/,''));if(lines.length<2)throw Error('The sheet has no data rows.');const raw=splitCSV(lines[0]);const aliases={id:['id','propertyid','ref','reference'],address:['address','propertyaddress','houseaddress'],postcode:['postcode','postalcode','zip'],latitude:['latitude','lat'],longitude:['longitude','lng','lon','long'],notes:['notes','note','comments','comment'],damage:['damage','damagedescription','propertydamage'],photos:['photos','photourls','photo','images','imageurls','photolinks']};const idx={};raw.forEach((h,i)=>{const n=normaliseHeader(h);for(const [key,vals] of Object.entries(aliases))if(vals.includes(n))idx[key]=i});if(idx.address===undefined)throw Error('Missing required column: Address.');const rows=[];lines.slice(1).forEach((line,i)=>{const a=splitCSV(line);if(!a.some(Boolean))return;const get=k=>idx[k]===undefined?'':(a[idx[k]]??'').trim();if(!get('address'))return;const lat=parseFloat(get('latitude')),lon=parseFloat(get('longitude'));rows.push({id:get('id')||String(rows.length+1).padStart(2,'0'),address:get('address'),postcode:get('postcode'),latitude:Number.isFinite(lat)?lat:null,longitude:Number.isFinite(lon)?lon:null,notes:get('notes'),damage:get('damage'),photos:get('photos'),rowNumber:i+2})});if(!rows.length)throw Error('No usable property rows were found.');return rows}
 const GEOCODE_CACHE_VERSION='v3';
 const QP_BOUNDS={south:51.515,north:51.555,west:-0.245,east:-0.165};
 function isLocalCoordinate(lat,lon){lat=+lat;lon=+lon;return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=QP_BOUNDS.south&&lat<=QP_BOUNDS.north&&lon>=QP_BOUNDS.west&&lon<=QP_BOUNDS.east}
@@ -198,7 +200,7 @@ function applyManualPins(){
  const pins=storedPins(), matched=new Set();
  properties.forEach(p=>{
   const override=matchSavedPin(p,pins);
-  if(override){Object.assign(p,{address:override.address||p.address,postcode:override.postcode??p.postcode,notes:override.notes??p.notes});
+  if(override){Object.assign(p,{address:override.address||p.address,postcode:override.postcode??p.postcode,notes:override.notes??p.notes,damage:override.damage??p.damage});
    if(isLocalCoordinate(override.latitude,override.longitude)){p.latitude=override.latitude;p.longitude=override.longitude;p.locationSource='manual'}
    matched.add(pinKey(override));
   }
@@ -233,7 +235,7 @@ function selectPropertyForEditing(index){
  stopPin();document.querySelector('#pinProperty').value=String(index);
  document.querySelector('#pinAddress').value=p.address;
  document.querySelector('#pinPostcode').value=p.postcode||'';
- document.querySelector('#pinNotes').value=p.notes||'';
+ document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';
  if(isLocalCoordinate(p.latitude,p.longitude))focusProperty(p);
  pinMsg('Selected '+p.address+'. Click Place pinpoint on map to correct its location.');
  document.querySelector('#pinEditor').scrollIntoView({behavior:'smooth',block:'start'});
@@ -245,8 +247,8 @@ function bindEditLocation(container){
  }));
 }
 document.querySelector('#pinProperty').addEventListener('change',e=>{
- const p=properties[+e.target.value];if(e.target.value==='new'||!p){document.querySelector('#pinAddress').value='';document.querySelector('#pinPostcode').value='';document.querySelector('#pinNotes').value='';return}
- document.querySelector('#pinAddress').value=p.address;document.querySelector('#pinPostcode').value=p.postcode||'';document.querySelector('#pinNotes').value=p.notes||'';
+ const p=properties[+e.target.value];if(e.target.value==='new'||!p){document.querySelector('#pinAddress').value='';document.querySelector('#pinPostcode').value='';document.querySelector('#pinNotes').value='';document.querySelector('#pinDamage').value='';return}
+ document.querySelector('#pinAddress').value=p.address;document.querySelector('#pinPostcode').value=p.postcode||'';document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';
  focusProperty(p);
 });
 document.querySelector('#saveDetails').addEventListener('click',()=>{
@@ -255,7 +257,7 @@ document.querySelector('#saveDetails').addEventListener('click',()=>{
  const original=properties[+chosen];if(!original)return;
  const address=document.querySelector('#pinAddress').value.trim();
  if(!address){pinMsg('Please enter the street address.');return}
- const updated={...original,address,postcode:document.querySelector('#pinPostcode').value.trim(),notes:document.querySelector('#pinNotes').value.trim()};
+ const updated={...original,address,postcode:document.querySelector('#pinPostcode').value.trim(),notes:document.querySelector('#pinNotes').value.trim(),damage:document.querySelector('#pinDamage').value.trim()};
  try{persistProperty(original,updated)}catch(e){pinMsg('Could not save in this browser: '+e.message);return}
  render();focusProperty(original);pinMsg('Street name and property details saved locally. Export CSV to update your Google Sheet.');
 });
@@ -290,15 +292,15 @@ document.querySelector('#savePin').addEventListener('click',()=>{
  const chosen=document.querySelector('#pinProperty').value;
  const original=chosen==='new'?null:properties[+chosen];
  const id=original?.id||'M'+Date.now().toString(36).toUpperCase();
- const p={...(original||{}),id,address,postcode,notes:document.querySelector('#pinNotes').value.trim(),latitude:+loc.lat.toFixed(7),longitude:+loc.lng.toFixed(7),locationSource:'manual'};
+ const p={...(original||{}),id,address,postcode,notes:document.querySelector('#pinNotes').value.trim(),damage:document.querySelector('#pinDamage').value.trim(),latitude:+loc.lat.toFixed(7),longitude:+loc.lng.toFixed(7),locationSource:'manual'};
  try{persistProperty(original,p)}catch(e){pinMsg('Browser storage failed: '+e.message);return}
  stopPin();render();focusProperty(p);
  pinMsg('Pinpoint saved in this browser. Download CSV to back it up and share it.');
 });
 function csvCell(v){const s=String(v??'');return '"'+s.replace(/"/g,'""')+'"'}
 function propertyCsv(){
- const headers=['ID','Address','Postcode','Latitude','Longitude','Notes','Photos','Location Source'];
- const rows=properties.map(p=>[p.id,p.address,p.postcode,p.latitude??'',p.longitude??'',p.notes,p.photos,p.locationSource||'geocoded']);
+ const headers=['ID','Address','Postcode','Latitude','Longitude','Notes','Damage','Photos','Location Source'];
+ const rows=properties.map(p=>[p.id,p.address,p.postcode,p.latitude??'',p.longitude??'',p.notes,p.damage||'',p.photos,p.locationSource||'geocoded']);
  return '\uFEFF'+[headers,...rows].map(r=>r.map(csvCell).join(',')).join('\r\n');
 }
 function showCsvFallback(csv){

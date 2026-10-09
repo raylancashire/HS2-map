@@ -23,3 +23,6 @@ Select an existing property or click its **Edit location on map** button. Change
 
 ## Selecting an address
 Click an address in the Loaded Addresses list or choose a property in the Pinpoint Editor. The map now moves to the saved coordinates at building-level zoom and opens a popup. Unlocated properties are not assigned invented coordinates.
+
+## Damage field (new)
+The Google Sheet's **Damage** column is loaded as free text. It is shown in property details, searched alongside addresses/notes, and included in CSV exports. Empty fields are labelled “No damage recorded” (not proof of no damage). Damage descriptions may include quoted line breaks. The pinpoint editor also allows a locally saved edit to the damage description; export CSV and update the Google Sheet to publish edits. Existing coordinates and photo links are preserved.
