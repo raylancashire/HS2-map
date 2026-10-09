@@ -41,7 +41,7 @@ function toXY(lat,lon,refLat){const R=6371000,rad=Math.PI/180;return {x:lon*rad*
 function pointSegDist(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,den=dx*dx+dy*dy;let t=den?((p.x-a.x)*dx+(p.y-a.y)*dy)/den:0;t=Math.max(0,Math.min(1,t));return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy))}
 function tunnelDistance(lat,lon){if(!routeLines.length)return NaN;const ref=lat,p=toXY(lat,lon,ref);let d=Infinity;routeLines.forEach(line=>{for(let i=0;i<line.length-1;i++){const a=line[i],b=line[i+1];d=Math.min(d,pointSegDist(p,toXY(a[0],a[1],ref),toXY(b[0],b[1],ref)))}});return d}
 function classify(d){return !Number.isFinite(d)?'unknown':d<=15?'d0':d<=30?'d15':d<=60?'d30':d<=100?'d60':'d100'}
-function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}" aria-label="${esc(p.address)}"></span>`,iconSize:[12,12],iconAnchor:[6,6]})}
+function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}${!String(p.damage||'').trim()||/^(no damage|none|nil|no damage recorded|no visible damage)[.!\s]*$/i.test(String(p.damage).trim())?' no-damage':''}" aria-label="${esc(p.address)}"></span>`,iconSize:[12,12],iconAnchor:[6,6]})}
 function render(){
  markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;
  let visible=0;
@@ -119,8 +119,33 @@ function requestWebadorPhotos(address){
  if(window.parent===window){alert('Open the map on its Webador page to view the linked album.');return;}
  window.parent.postMessage({type:'hs2-qpt-open-photos',address:String(address||'')},'*');
 }
+// Ask the Webador parent for thumbnail previews whenever a property is displayed.
+function requestWebadorPreviews(address){
+ if(window.parent===window)return;
+ window.parent.postMessage({type:'hs2-qpt-request-previews',address:String(address||'')},'*');
+}
+window.addEventListener('message',event=>{
+ if(event.source!==window.parent||!event.data||event.data.type!=='hs2-qpt-photo-previews')return;
+ // The reply must come from the page that embeds this map.
+ try{if(document.referrer&&event.origin!==new URL(document.referrer).origin)return;}catch{return;}
+ const address=String(event.data.address||'');
+ const photos=Array.isArray(event.data.photos)?event.data.photos.slice(0,3):[];
+ document.querySelectorAll('.hs2-live-previews').forEach(box=>{
+  if(box.dataset.address!==address)return;
+  box.replaceChildren();
+  if(!photos.length){box.textContent='No matching Webador photographs yet.';return;}
+  photos.forEach(photo=>{
+   let url;try{url=new URL(photo.thumb);if(url.protocol!=='https:')return;}catch{return;}
+   const button=document.createElement('button');button.type='button';button.className='hs2-preview-tile';
+   button.title=String(photo.caption||'View photographs');
+   const img=document.createElement('img');img.src=url.href;img.alt=String(photo.caption||'Property photograph');img.loading='lazy';
+   button.appendChild(img);button.addEventListener('click',()=>requestWebadorPhotos(address));box.appendChild(button);
+  });
+ });
+});
 function bindPhotoButtons(scope){
  if(!scope)return;
+ const previews=scope.querySelector('.hs2-live-previews');if(previews)requestWebadorPreviews(previews.dataset.address);
  scope.querySelectorAll('.hs2-webador-gallery').forEach(button=>{
   button.addEventListener('click',()=>requestWebadorPhotos(button.dataset.address));
  });
@@ -129,7 +154,7 @@ function propertyCard(p){
  const distance=Number.isFinite(p.distance)?Math.round(p.distance)+' metres (estimated)':'Not available';
  const photos=photoEntries(p);
  const gallery=photos.length?`<div class="property-gallery">${photos.map((photo,i)=>`<a href="${esc(photo.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open property photo ${i+1}: ${esc(photo.caption)}"><img src="${esc(photo.url)}" alt="${esc(photo.caption)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"><small>${esc(photo.caption)}</small></a>`).join('')}</div>`:'<p class="hint">No indexed photographs for this property yet.</p>';
- return `<div class="property-card"><h3>${esc(p.address)}</h3><p><strong>Location:</strong> ${esc(p.address)}${p.postcode?', '+esc(p.postcode):''}</p><p><strong>Property ID:</strong> ${esc(p.id)}</p><p><strong>Distance from tunnel:</strong> ${distance}</p><p><strong>Coordinates:</strong> ${Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)?Number(p.latitude).toFixed(6)+', '+Number(p.longitude).toFixed(6):'Unavailable'}</p>${p.notes?`<p>${esc(p.notes)}</p>`:''}<h4>Damage recorded</h4><p class="damage-description">${p.damage?esc(p.damage).replace(/\r?\n/g,'<br>'):'No damage recorded'}</p><h4>Associated photographs</h4><button type="button" class="hs2-webador-gallery" data-address="${esc(p.address)}">View property photographs</button><p class="hint">Opens the Webador album viewer when displayed on the QPT website.</p>${gallery}${photoAlbumLink()}<button type="button" class="edit-location" data-property-id="${esc(p.id)}" data-property-address="${esc(p.address)}">Edit location on map</button><p class="hint">Tunnel geometry is provisional. Distance is horizontal and does not establish eligibility or safeguarding status.</p></div>`;
+ return `<div class="property-card"><h3>${esc(p.address)}</h3><p><strong>Location:</strong> ${esc(p.address)}${p.postcode?', '+esc(p.postcode):''}</p><p><strong>Property ID:</strong> ${esc(p.id)}</p><p><strong>Distance from tunnel:</strong> ${distance}</p><p><strong>Coordinates:</strong> ${Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)?Number(p.latitude).toFixed(6)+', '+Number(p.longitude).toFixed(6):'Unavailable'}</p>${p.notes?`<p>${esc(p.notes)}</p>`:''}<h4>Damage recorded</h4><p class="damage-description">${p.damage?esc(p.damage).replace(/\r?\n/g,'<br>'):'No damage recorded'}</p><h4>Associated photographs</h4><div class="hs2-live-previews" data-address="${esc(p.address)}" aria-label="Webador photograph previews"><span class="hint">Loading Webador photographs…</span></div><button type="button" class="hs2-webador-gallery" data-address="${esc(p.address)}">View property photographs</button><p class="hint">Opens the Webador album viewer when displayed on the QPT website.</p>${gallery}${photoAlbumLink()}<button type="button" class="edit-location" data-property-id="${esc(p.id)}" data-property-address="${esc(p.address)}">Edit location on map</button><p class="hint">Tunnel geometry is provisional. Distance is horizontal and does not establish eligibility or safeguarding status.</p></div>`;
 }
 function showDetails(p){document.querySelector('#details').innerHTML='<h2>Selected property</h2>'+propertyCard(p);bindEditLocation(document.querySelector('#details'));bindPhotoButtons(document.querySelector('#details'))}
 function focusProperty(p,zoom=19){
