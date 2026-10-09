@@ -175,7 +175,20 @@ function showUnresolved(failed){const el=document.querySelector('#unresolved');i
 
 function setDataStatus(message,kind=''){const el=document.querySelector('#dataStatus');el.textContent=message;el.className='data-status '+kind}
 function sheetCsvUrl(){return cfg.spreadsheetId?`https://docs.google.com/spreadsheets/d/${encodeURIComponent(cfg.spreadsheetId)}/export?format=csv&gid=${encodeURIComponent(cfg.sheetGid||'0')}`:''}
-function fitAll(){const pts=validProperties().map(p=>[+p.latitude,+p.longitude]);if(pts.length===1)map.setView(pts[0],17);else if(pts.length>1)map.fitBounds(pts,{padding:[60,60],maxZoom:17});else map.setView([51.5340,-0.2050],15.2);setTimeout(()=>map.invalidateSize(true),50)}
+function fitAll(){
+ const pts=validProperties().map(p=>[+p.latitude,+p.longitude]);
+ // Centre the initial view on the complete collection of located property pins.
+ // Recalculate after layout has settled (important when embedded in Webador).
+ const centrePins=()=>{
+   map.invalidateSize({pan:false});
+   if(pts.length===1)map.setView(pts[0],17,{animate:false});
+   else if(pts.length>1)map.fitBounds(L.latLngBounds(pts),{paddingTopLeft:[55,55],paddingBottomRight:[55,55],maxZoom:16.5,animate:false});
+   else map.setView([51.5340,-0.2050],15.2,{animate:false});
+ };
+ centrePins();
+ requestAnimationFrame(()=>requestAnimationFrame(centrePins));
+ setTimeout(centrePins,400);
+}
 async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());applyManualPins();const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=[];render();showUnresolved([]);setDataStatus(`Google Sheet could not be loaded: ${err.message}. No sample properties are displayed. Check Sheet sharing or import a CSV.`, 'error')}}
 async function loadRoute(){
   tunnelLayer.clearLayers(); zoneLayer.clearLayers(); corridorLayer.clearLayers(); routeLines=[];
