@@ -427,13 +427,18 @@ function selectedLocalProperty(){
 function localPropertyMatches(p,pins){
  if(!p)return [];
  const norm=v=>String(v??'').trim().toLowerCase().replace(/\s+/g,' ');
- const id=norm(p.id), address=norm(p.address);
- return Object.entries(pins).filter(([key,v])=>
-   key===pinKey(p)||
-   (id&&norm(v.id)===id)||
-   (address&&norm(v.address)===address)||
-   (id&&address&&norm(key)===id+'|'+address)
- );
+ const id=norm(p.id);
+ const address=norm(p.address);
+ // An ID is the unique identity. Never delete a different ID just
+ // because it has the same street address.
+ return Object.entries(pins).filter(([key,v])=>{
+   const savedId=norm(v.id);
+   const keyId=norm(key.split('|')[0]);
+   if(id)return savedId===id || (!savedId && keyId===id);
+   // For records with no ID, require an exact key match; do not
+   // delete every property sharing an address.
+   return !savedId && norm(key)===norm(pinKey(p)) && !!address;
+ });
 }
 function updateRemoveLocalButton(){
  const button=document.querySelector('#removeLocalProperty');
@@ -451,7 +456,7 @@ document.querySelector('#removeLocalProperty').addEventListener('click',async()=
  const pins=storedPins();
  const matches=localPropertyMatches(p,pins);
  if(!matches.length){pinMsg('No locally saved record matched '+p.address+'. Nothing was deleted.');return;}
- if(!confirm('Remove '+matches.length+' locally saved record(s) for '+p.address+'?\n\nGoogle Sheets will not be changed.'))return;
+ if(!confirm('Remove '+matches.length+' locally saved record(s) for '+p.address+' (Property ID: '+(p.id||'not assigned')+')?\n\nOther property IDs and Google Sheets will not be changed.'))return;
  for(const [key] of matches)delete pins[key];
  try{localStorage.setItem(MANUAL_KEY,JSON.stringify(pins))}catch(e){pinMsg('Could not remove local property: '+e.message);return;}
  stopPin();sel.value='new';
