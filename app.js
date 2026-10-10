@@ -23,6 +23,9 @@ osmTiles.on('load',()=>{
 });
 
 const cfg=window.HS2_MAP_CONFIG||{};
+const CUSTOM_ROUTE_KEY='hs2qp:custom-tunnel-route:v1';
+let routeDrawing=false,routeEditing=false,routeDraft=[],routeEditMarkers=[];
+
 let routeFeature=null, routeLines=[];
 let tunnelLayer=L.layerGroup().addTo(map);
 let zoneLayer=L.layerGroup();
@@ -334,17 +337,18 @@ async function loadRoute(){
   try{
     const res=await fetch('hs2-route.geojson',{cache:'no-store'});
     if(!res.ok) throw Error('HTTP '+res.status);
-    const fc=await res.json();
+    let fc=await res.json();
+    try { const saved=JSON.parse(localStorage.getItem(CUSTOM_ROUTE_KEY)||'null'); if(saved?.geometry?.type==='LineString' && saved.geometry.coordinates.length>=2) fc={type:'FeatureCollection',features:[saved,...(fc.features||[]).filter(f=>f.geometry?.type==='Polygon'||f.geometry?.type==='MultiPolygon')]}; } catch(e){}
     const route=fc.features.find(f=>f.geometry&&(f.geometry.type==='LineString'||f.geometry.type==='MultiLineString'));
     const zone=fc.features.find(f=>f.geometry&&(f.geometry.type==='Polygon'||f.geometry.type==='MultiPolygon'));
     if(route){
       routeFeature=route;
       routeLines=route.geometry.type==='MultiLineString'?route.geometry.coordinates.map(line=>line.map(c=>[c[1],c[0]])):[route.geometry.coordinates.map(c=>[c[1],c[0]])];
-      L.geoJSON(route,{style:{color:'#555',weight:3,opacity:.9,dashArray:'10 7',lineCap:'butt'}}).addTo(tunnelLayer);
+      L.geoJSON(route,{style:{color:'#142e63',weight:3,opacity:1,lineCap:'round'}}).addTo(tunnelLayer);
       // Turf computes a true geographic 30 metre buffer, not a pixel-width stroke.
       if(window.turf && typeof turf.buffer==='function'){
         const corridor=turf.buffer(route,30,{units:'meters',steps:32});
-        L.geoJSON(corridor,{style:{color:'#bd3b3b',weight:1.5,opacity:.7,fillColor:'#e66b6b',fillOpacity:.24},interactive:false}).addTo(corridorLayer);
+        L.geoJSON(corridor,{style:{color:'#315b9c',weight:1.5,opacity:.75,fillColor:'#648cc8',fillOpacity:.28},interactive:false}).addTo(corridorLayer);
       }
     }
     if(zone){
@@ -356,12 +360,33 @@ async function loadRoute(){
     if(!map.hasLayer(tunnelLayer))tunnelLayer.addTo(map);
     if(map.hasLayer(zoneLayer))map.removeLayer(zoneLayer);
     if(!map.hasLayer(corridorLayer))corridorLayer.addTo(map);
-    document.querySelector('#routeStatus').textContent='Red shading is a calculated 30 m buffer either side of the current grey tunnel line. The line has NOT been verified against the source screenshot, so this corridor and house distances are indicative only, not an official HS2 eligibility boundary.';
+    document.querySelector('#routeStatus').textContent='Blue shading is an indicative calculated 30 m buffer on each side of the selected tunnel reference line. A manually traced line is not official HS2 geometry or an eligibility boundary.';
   }catch(err){
     document.querySelector('#routeStatus').textContent='HS2 vector layer could not be loaded: '+err.message;
   }
   render();
 }
+// Optional manual tunnel trace. Coordinates are captured from map clicks, not inferred from screenshots.
+(function installTunnelEditor(){
+ const target=document.querySelector('#routeStatus'); if(!target)return;
+ const panel=document.createElement('div');panel.id='tunnelEditor';panel.style.cssText='margin:12px 0;padding:12px;border:1px solid #c8d2e0;border-radius:8px';
+ panel.innerHTML='<strong>Tunnel route editor</strong><p class="hint">Trace the approximate HS2 alignment by clicking along the map. Finish to calculate the 30 m corridor. Local edits remain in this browser until exported.</p><button type="button" id="traceStart">Draw new route</button> <button type="button" id="traceFinish" disabled>Finish and save</button> <button type="button" id="traceUndo" disabled>Undo point</button> <button type="button" id="traceCancel" disabled>Cancel drawing</button> <button type="button" id="traceEdit">Edit saved points</button> <button type="button" id="traceExport">Export route GeoJSON</button> <button type="button" id="traceReset">Restore repository route</button><p id="traceStatus" class="hint" role="status"></p>';
+ target.before(panel);
+ const $=id=>document.getElementById(id), msg=t=>$('traceStatus').textContent=t;
+ let preview=L.polyline([],{color:'#142e63',weight:4,dashArray:'5 5'}).addTo(map);
+ function setDraw(active){routeDrawing=active;$('traceFinish').disabled=!active;$('traceUndo').disabled=!active;$('traceCancel').disabled=!active;$('traceStart').disabled=active;map.getContainer().style.cursor=active?'crosshair':'';}
+ function clearEdit(){routeEditMarkers.forEach(m=>map.removeLayer(m));routeEditMarkers=[];routeEditing=false;$('traceEdit').textContent='Edit saved points';}
+ function feature(coords){return {type:'Feature',properties:{name:'Manually traced HS2 reference line',source:'User-traced approximate alignment',verified:false},geometry:{type:'LineString',coordinates:coords}};}
+ function save(coords){localStorage.setItem(CUSTOM_ROUTE_KEY,JSON.stringify(feature(coords)));preview.setLatLngs([]);clearEdit();setDraw(false);loadRoute();msg('Custom tunnel route saved in this browser. Export GeoJSON to publish it for other visitors.');}
+ $('traceStart').onclick=()=>{clearEdit();routeDraft=[];preview.setLatLngs([]);setDraw(true);msg('Click along the tunnel route. At least two points are needed.');};
+ map.on('click',e=>{if(!routeDrawing)return;routeDraft.push([e.latlng.lng,e.latlng.lat]);preview.setLatLngs(routeDraft.map(c=>[c[1],c[0]]));msg(routeDraft.length+' points traced');});
+ $('traceUndo').onclick=()=>{routeDraft.pop();preview.setLatLngs(routeDraft.map(c=>[c[1],c[0]]));};
+ $('traceCancel').onclick=()=>{routeDraft=[];preview.setLatLngs([]);setDraw(false);msg('Drawing cancelled. Existing route unchanged.');};
+ $('traceFinish').onclick=()=>{if(routeDraft.length<2){msg('Add at least two points.');return;}save(routeDraft);};
+ $('traceEdit').onclick=()=>{if(routeEditing){clearEdit();return;}const coords=routeFeature?.geometry?.coordinates;if(!coords||routeFeature.geometry.type!=='LineString'){msg('No editable line loaded.');return;}routeEditing=true;$('traceEdit').textContent='Stop editing';coords.forEach((c,i)=>{const m=L.marker([c[1],c[0]],{draggable:true,autoPan:true}).addTo(map);m.on('dragend',()=>{const updated=coords.map(a=>a.slice());updated[i]=[m.getLatLng().lng,m.getLatLng().lat];save(updated);$('traceEdit').click();});routeEditMarkers.push(m);});msg('Drag a point to move it; the route saves after each drag.');};
+ $('traceExport').onclick=()=>{const raw=localStorage.getItem(CUSTOM_ROUTE_KEY);if(!raw){msg('Draw or edit a custom route first.');return;}const url=URL.createObjectURL(new Blob([JSON.stringify(JSON.parse(raw),null,2)],{type:'application/geo+json'}));const a=document.createElement('a');a.href=url;a.download='hs2-route-custom.geojson';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+ $('traceReset').onclick=()=>{if(!confirm('Remove your locally saved tunnel trace and reload the repository route?'))return;localStorage.removeItem(CUSTOM_ROUTE_KEY);clearEdit();loadRoute();msg('Repository route restored.');};
+})();
 document.querySelector('#search').addEventListener('input',render);document.querySelector('#status').addEventListener('change',render);
 document.querySelector('#showCorridor').addEventListener('change',e=>e.target.checked?corridorLayer.addTo(map):map.removeLayer(corridorLayer));
 document.querySelector('#showTunnel').addEventListener('change',e=>e.target.checked?tunnelLayer.addTo(map):map.removeLayer(tunnelLayer));document.querySelector('#showZone').addEventListener('change',e=>e.target.checked?zoneLayer.addTo(map):map.removeLayer(zoneLayer));document.querySelector('#showHouses').addEventListener('change',e=>e.target.checked?markerLayer.addTo(map):map.removeLayer(markerLayer));
