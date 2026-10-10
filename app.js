@@ -329,12 +329,13 @@ function fitAll(){
  },2500);
 }
 async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());applyManualPins();const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=[];render();showUnresolved([]);setDataStatus(`Google Sheet could not be loaded: ${err.message}. No sample properties are displayed. Check Sheet sharing or import a CSV.`, 'error')}}
-async function loadRoute(){
+async function loadRoute(overrideGeojson){
   tunnelLayer.clearLayers(); zoneLayer.clearLayers(); corridorLayer.clearLayers(); routeLines=[];
   try{
-    const res=await fetch('hs2-route.geojson',{cache:'no-store'});
+    let fc=overrideGeojson;
+    if(!fc){const res=await fetch('hs2-route.geojson',{cache:'no-store'});
     if(!res.ok) throw Error('HTTP '+res.status);
-    const fc=await res.json();
+    fc=await res.json();}
     const route=fc.features.find(f=>f.geometry&&(f.geometry.type==='LineString'||f.geometry.type==='MultiLineString'));
     const zone=fc.features.find(f=>f.geometry&&(f.geometry.type==='Polygon'||f.geometry.type==='MultiPolygon'));
     if(route){
