@@ -1,4 +1,6 @@
 [
-  {"name":"Original alignment","file":"hs2-route.geojson"}
-  {"name":"Original alignment","file":"hs2-route-parallel-left-20m"}
+  {"name":"West Line","file":"hs2-route.geojson"
+  "name":"East Line","file":"hs2-route-parallel-left-20m"
+  }
+
 ]
