@@ -26,11 +26,12 @@
     });
   }
   async function readSource(){
-    const r=await fetch('hs2-route.geojson',{cache:'no-store'});
+    const r=await fetch(window.hs2ActiveRouteFile||'hs2-route.geojson',{cache:'no-store'});
     if(!r.ok)throw Error('Unable to load hs2-route.geojson');
     source=await r.json();working=structuredClone(source);
     if(!feature())throw Error('No LineString tunnel alignment found');
   }
+  document.addEventListener('hs2-route-version-changed',()=>{active=false;clearHandles();source=null;working=null;dirty=false;start.disabled=false;stop.disabled=true;download.disabled=true;say('Selected route changed. Click Edit tunnel alignment to edit this version.');});
   start.addEventListener('click',async()=>{
     try{if(!working)await readSource();active=true;start.disabled=true;stop.disabled=false;makeHandles();say('Drag purple handles to reposition the provisional tunnel route.');}
     catch(e){say(e.message)}
@@ -43,7 +44,7 @@
   download.addEventListener('click',()=>{
     if(!working)return;
     const blob=new Blob([JSON.stringify(working,null,2)+'\n'],{type:'application/geo+json'});
-    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='hs2-route.geojson';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-    say('GeoJSON downloaded. Replace hs2-route.geojson in GitHub to publish this alignment.');
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=(document.getElementById('routeVersionName')?.value||'hs2-route-new').trim().replace(/[^a-z0-9_-]+/gi,'-')+'.geojson';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    say('Route version downloaded. Upload it to GitHub and register it in routes.json to publish.');
   });
 })();

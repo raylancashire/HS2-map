@@ -333,7 +333,7 @@ async function loadRoute(overrideGeojson){
   tunnelLayer.clearLayers(); zoneLayer.clearLayers(); corridorLayer.clearLayers(); routeLines=[];
   try{
     let fc=overrideGeojson;
-    if(!fc){const res=await fetch('hs2-route.geojson',{cache:'no-store'});
+    if(!fc){const res=await fetch(window.hs2ActiveRouteFile||'hs2-route.geojson',{cache:'no-store'});
     if(!res.ok) throw Error('HTTP '+res.status);
     fc=await res.json();}
     const route=fc.features.find(f=>f.geometry&&(f.geometry.type==='LineString'||f.geometry.type==='MultiLineString'));
