@@ -73,3 +73,17 @@ main>#map{height:100%;min-height:0;min-width:0;overflow:hidden;}
 /* Import controls hidden on public pages only. */
 
 .webador-public #pinEditor{display:none!important}
+
+/* Stage 3: fixed-height, independently scrolling desktop panels.
+   Use viewport units rather than a percentage inherited from an iframe body. */
+@media (min-width:761px){
+  html,body{height:100%;}
+  body{height:100vh;height:100dvh;min-height:0;overflow:hidden;}
+  main{height:0;min-height:0;flex:1 1 auto;overflow:hidden;}
+  main>aside{height:100%;min-height:0;max-height:none;overflow-y:auto;overflow-x:hidden;}
+  main>#map{height:100%;min-height:0;overflow:hidden;}
+}
+/* Touch-sized screens retain separate scrolling for the address panel. */
+@media (max-width:760px){
+  main>aside{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+}
