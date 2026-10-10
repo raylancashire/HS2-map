@@ -28,6 +28,38 @@ let tunnelLayer=L.layerGroup().addTo(map);
 let zoneLayer=L.layerGroup();
 let corridorLayer=L.layerGroup().addTo(map);
 const markerLayer=L.layerGroup().addTo(map);
+// ONS December 2024 generalised electoral ward boundary.
+const wardBoundaryLayer=L.geoJSON(null,{
+  style:{color:'#763aa5',weight:3,opacity:1,fillColor:'#aa82c9',fillOpacity:.05},
+  onEachFeature:(feature,layer)=>layer.bindPopup('<strong>Queen’s Park Ward</strong><br>City of Westminster<br>ONS December 2024 electoral ward boundary')
+}).addTo(map);
+async function loadWardBoundary(){
+  const status=document.querySelector('#wardStatus');
+  const endpoint='https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Wards_December_2024_Boundaries_UK_BGC/FeatureServer/0/query';
+  const params=new URLSearchParams({where:"WD24NM LIKE 'Queen%Park'",outFields:'*',returnGeometry:'true',outSR:'4326',f:'geojson'});
+  // Prefer a repository-hosted copy, if provided later, then the official ONS service.
+  for(const url of ['queens-park-ward.geojson',endpoint+'?'+params.toString()]){
+    try{
+      const response=await fetch(url);if(!response.ok)throw Error('HTTP '+response.status);
+      const data=await response.json();
+      const features=(data.features||[]).filter(f=>{
+        const a=f.properties||{};
+        const name=String(a.WD24NM||a.WD24NM_EN||a.name||'').toLowerCase().replace(/[’]/g,"'");
+        const district=String(a.LAD24NM||a.LAD24NM_EN||a.lad_name||'').toLowerCase();
+        return name.replace(/[’‘]/g,"'")==="queen's park" && (!district||district.includes('westminster'));
+      });
+      if(!features.length)throw Error('Queen’s Park, Westminster not found in dataset');
+      wardBoundaryLayer.clearLayers();wardBoundaryLayer.addData({type:'FeatureCollection',features});
+      status.textContent='ONS December 2024 ward boundary loaded';
+      return;
+    }catch(err){status.textContent='Ward boundary: '+err.message;}
+  }
+  status.textContent='Ward boundary unavailable. Check connection or add queens-park-ward.geojson to the repository.';
+}
+document.querySelector('#showWardBoundary').addEventListener('change',e=>e.target.checked?wardBoundaryLayer.addTo(map):map.removeLayer(wardBoundaryLayer));
+document.querySelector('#zoomWard').addEventListener('click',()=>{const b=wardBoundaryLayer.getBounds();if(b.isValid())map.fitBounds(b.pad(.08));});
+loadWardBoundary();
+
 let properties=[];
 let photoIndex=[];
 
@@ -296,7 +328,7 @@ function fitAll(){
    openingFitObserver.disconnect();openingFitObserver=null;
  },2500);
 }
-async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());applyManualPins();render();fitAll();setDataStatus(`${properties.length} properties received · locating any missing coordinates…`,'loading');const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=[];render();showUnresolved([]);setDataStatus(`Google Sheet could not be loaded: ${err.message}. No sample properties are displayed. Check Sheet sharing or import a CSV.`, 'error')}}
+async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());applyManualPins();const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=[];render();showUnresolved([]);setDataStatus(`Google Sheet could not be loaded: ${err.message}. No sample properties are displayed. Check Sheet sharing or import a CSV.`, 'error')}}
 async function loadRoute(){
   tunnelLayer.clearLayers(); zoneLayer.clearLayers(); corridorLayer.clearLayers(); routeLines=[];
   try{
@@ -347,14 +379,7 @@ document.querySelector('#showHouses').checked=true;
 document.querySelector('#showTunnel').checked=true;
 document.querySelector('#showZone').checked=false;
 document.querySelector('#showCorridor').checked=true;
-// Load the property sheet and tunnel geometry independently. A route failure
-// must never prevent the Google Sheet from loading.
-properties=[];
-try{render()}catch(e){console.error('Initial render failed',e)}
-if(cfg.useGoogleSheet!==false){
-  loadGoogleSheet().catch(e=>setDataStatus('Property loading failed: '+e.message,'error'));
-}else setDataStatus('Google Sheet loading is disabled.','');
-loadRoute().catch(e=>console.error('Tunnel route loading failed',e));
+properties=[];render();loadRoute().then(()=>{if(cfg.useGoogleSheet!==false)loadGoogleSheet();else setDataStatus('Google Sheet loading is disabled. Import a CSV to display properties.','')});
 
 
 // Manual pinpoints: explicit browser-local overrides, never silently written to Google Sheets.
@@ -393,7 +418,54 @@ function refreshPinOptions(){
  const old=sel.value;
  sel.innerHTML='<option value="new">+ New property</option>'+properties.map((p,i)=>`<option value="${i}">${esc(p.address)}${p.postcode?' ('+esc(p.postcode)+')':''}</option>`).join('');
  sel.value=(old==='new'||old===''||!Number.isInteger(+old)||+old>=properties.length)?'new':old;
+ updateRemoveLocalButton();
 }
+function selectedLocalProperty(){
+ const selected=document.querySelector('#pinProperty').value;
+ return selected==='new'?null:properties[Number(selected)]||null;
+}
+function localPropertyMatches(p,pins){
+ if(!p)return [];
+ const norm=v=>String(v??'').trim().toLowerCase().replace(/\s+/g,' ');
+ const id=norm(p.id);
+ const address=norm(p.address);
+ // An ID is the unique identity. Never delete a different ID just
+ // because it has the same street address.
+ return Object.entries(pins).filter(([key,v])=>{
+   const savedId=norm(v.id);
+   const keyId=norm(key.split('|')[0]);
+   if(id)return savedId===id || (!savedId && keyId===id);
+   // For records with no ID, require an exact key match; do not
+   // delete every property sharing an address.
+   return !savedId && norm(key)===norm(pinKey(p)) && !!address;
+ });
+}
+function updateRemoveLocalButton(){
+ const button=document.querySelector('#removeLocalProperty');
+ if(!button)return;
+ const p=selectedLocalProperty();
+ // Do not disable for a selected property: the editor may show a Sheet row
+ // while the local record uses a different saved identifier.
+ button.disabled=!p;
+ button.title=p?'Check for and remove this property’s locally saved record. Google Sheets is unchanged.':'Select a property first.';
+}
+document.querySelector('#removeLocalProperty').addEventListener('click',async()=>{
+ const sel=document.querySelector('#pinProperty');
+ const p=selectedLocalProperty();
+ if(!p){pinMsg('Select a property from the dropdown first.');return;}
+ const pins=storedPins();
+ const matches=localPropertyMatches(p,pins);
+ if(!matches.length){pinMsg('No locally saved record matched '+p.address+'. Nothing was deleted.');return;}
+ if(!confirm('Remove '+matches.length+' locally saved record(s) for '+p.address+' (Property ID: '+(p.id||'not assigned')+')?\n\nOther property IDs and Google Sheets will not be changed.'))return;
+ for(const [key] of matches)delete pins[key];
+ try{localStorage.setItem(MANUAL_KEY,JSON.stringify(pins))}catch(e){pinMsg('Could not remove local property: '+e.message);return;}
+ stopPin();sel.value='new';
+ for(const id of ['pinAddress','pinPostcode','pinNotes','pinDamage'])document.querySelector('#'+id).value='';
+ pinMsg('Local record removed. Reloading properties…');
+ if(cfg.useGoogleSheet!==false)await loadGoogleSheet();
+ else {properties=properties.filter(v=>v!==p);render();}
+ pinMsg('Locally saved record removed. If it is still in Google Sheets, the Sheet version remains.');
+});
 function pinMsg(s){document.querySelector('#pinMessage').textContent=s}
 function stopPin(){
  placingPin=false;map.getContainer().style.cursor='';
@@ -402,7 +474,7 @@ function stopPin(){
 }
 function selectPropertyForEditing(index){
  const p=properties[index];if(!p)return;
- stopPin();document.querySelector('#pinProperty').value=String(index);
+ stopPin();document.querySelector('#pinProperty').value=String(index);updateRemoveLocalButton();
  document.querySelector('#pinAddress').value=p.address;
  document.querySelector('#pinPostcode').value=p.postcode||'';
  document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';
@@ -417,6 +489,7 @@ function bindEditLocation(container){
  }));
 }
 document.querySelector('#pinProperty').addEventListener('change',e=>{
+ updateRemoveLocalButton();
  const p=properties[+e.target.value];if(e.target.value==='new'||!p){document.querySelector('#pinAddress').value='';document.querySelector('#pinPostcode').value='';document.querySelector('#pinNotes').value='';document.querySelector('#pinDamage').value='';return}
  document.querySelector('#pinAddress').value=p.address;document.querySelector('#pinPostcode').value=p.postcode||'';document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';
  focusProperty(p);

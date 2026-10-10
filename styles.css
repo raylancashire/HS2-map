@@ -72,17 +72,3 @@ main>#map{height:100%;min-height:0;min-width:0;overflow:hidden;}
 
 /* Hide editing/import utilities regardless of URL, iframe parameters or caching. */
 #csvImportControl,#csvImportHelp,#photoImportSection{display:none!important}
-
-/* Give the map more horizontal space while retaining independent scrolling. */
-@media(min-width:761px){main{grid-template-columns:260px minmax(0,1fr)!important}}
-
-/* Public embed: no data-entry and editing controls. */
-.webador-public #pinEditor,.webador-public #pinpointEditor,.webador-public #csvImportControl,.webador-public #csvImportHelp,.webador-public #photoImportSection{display:none!important}
-
-/* Public embedded page: retain overlays but not the editing controls. */
-.webador-public #pinEditor,
-.webador-public #routeEditor,
-.webador-public .route-editor,
-.webador-public #csvImportControl,
-.webador-public #csvImportHelp,
-.webador-public #photoImportSection{display:none!important}
