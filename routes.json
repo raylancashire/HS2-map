@@ -1,5 +1,5 @@
 [
-  {"name":"West Line","file":"hs2-route.geojson"
+  {"name":"West Line","file":"hs2-route.geojson",
   "name":"East Line","file":"hs2-route-parallel-left-20m"
   }
 
