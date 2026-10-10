@@ -5,77 +5,77 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "HS2 route in tunnel \u2013 40\u00b0 anti-clockwise from previous build",
+        "name": "HS2 route in tunnel – 40° anti-clockwise from previous build",
         "source": "HS2 Property Schemes map PC-01-004 (June 2019)",
         "status": "user-requested-40-degree-anticlockwise-visual-adjustment-unverified",
-        "note": "Previous 20\u00b0 clockwise line rotated 40\u00b0 anti-clockwise around its middle vertex in local metre coordinates. Net rotation 20\u00b0 anti-clockwise relative to pre-rotation build. NOT an official verified tunnel alignment."
+        "note": "Previous 20° clockwise line rotated 40° anti-clockwise around its middle vertex in local metre coordinates. Net rotation 20° anti-clockwise relative to pre-rotation build. NOT an official verified tunnel alignment."
       },
       "geometry": {
         "type": "LineString",
         "coordinates": [
           [
-            -0.2167,
-            51.5295314
+            -0.2197319269180298,
+            51.52892430008821
           ],
           [
-            -0.2159563,
-            51.5298063
+            -0.21716237068176272,
+            51.5296251295721
           ],
           [
-            -0.2152126,
-            51.5300811
+            -0.21526604890823364,
+            51.53013906433709
           ],
           [
             -0.2144688,
             51.5303559
           ],
           [
-            -0.213725,
-            51.5306307
+            -0.2136620879173279,
+            51.53058124382606
           ],
           [
-            -0.2129813,
-            51.5309055
+            -0.21280914545059207,
+            51.53081317776536
           ],
           [
-            -0.2122375,
-            51.5311804
+            -0.2120795845985413,
+            51.53101007039802
           ],
           [
-            -0.2114938,
-            51.5314552
+            -0.21119177341461184,
+            51.53125535070684
           ],
           [
-            -0.21075,
-            51.53173
+            -0.210338830947876,
+            51.531487281211774
           ],
           [
-            -0.2100062,
-            51.5320048
+            -0.2094322443008423,
+            51.53173422750094
           ],
           [
-            -0.2092625,
-            51.5322796
+            -0.20874291658401492,
+            51.531922773427965
           ],
           [
-            -0.2085187,
-            51.5325545
+            -0.20781755447387698,
+            51.532176391496336
           ],
           [
-            -0.207775,
-            51.5328293
+            -0.20699948072433474,
+            51.532396637619925
           ],
           [
-            -0.2070312,
-            51.5331041
+            -0.20630478858947757,
+            51.53258851784387
           ],
           [
-            -0.2062874,
-            51.5333789
+            -0.2052479982376099,
+            51.53287717091813
           ],
           [
-            -0.2055437,
-            51.5336537
+            -0.20210713148117068,
+            51.533731439812314
           ]
         ]
       }
@@ -83,7 +83,7 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "HS2 safeguarded area \u2013 sub-surface",
+        "name": "HS2 safeguarded area – sub-surface",
         "source": "HS2 Property Schemes map PC-01-004 (June 2019)",
         "status": "georeferenced-reference-trace",
         "note": "Approximate vectorisation of the blue sub-surface safeguarded band from the official plan; reference only."
