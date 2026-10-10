@@ -384,7 +384,24 @@ async function loadRoute(){
  $('traceCancel').onclick=()=>{routeDraft=[];preview.setLatLngs([]);setDraw(false);msg('Drawing cancelled. Existing route unchanged.');};
  $('traceFinish').onclick=()=>{if(routeDraft.length<2){msg('Add at least two points.');return;}save(routeDraft);};
  $('traceEdit').onclick=()=>{if(routeEditing){clearEdit();return;}const coords=routeFeature?.geometry?.coordinates;if(!coords||routeFeature.geometry.type!=='LineString'){msg('No editable line loaded.');return;}routeEditing=true;$('traceEdit').textContent='Stop editing';coords.forEach((c,i)=>{const m=L.marker([c[1],c[0]],{draggable:true,autoPan:true}).addTo(map);m.on('dragend',()=>{const updated=coords.map(a=>a.slice());updated[i]=[m.getLatLng().lng,m.getLatLng().lat];save(updated);$('traceEdit').click();});routeEditMarkers.push(m);});msg('Drag a point to move it; the route saves after each drag.');};
- $('traceExport').onclick=()=>{const raw=localStorage.getItem(CUSTOM_ROUTE_KEY);if(!raw){msg('Draw or edit a custom route first.');return;}const url=URL.createObjectURL(new Blob([JSON.stringify(JSON.parse(raw),null,2)],{type:'application/geo+json'}));const a=document.createElement('a');a.href=url;a.download='hs2-route-custom.geojson';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+ $('traceExport').onclick=()=>{
+  try {
+    const raw=localStorage.getItem(CUSTOM_ROUTE_KEY);
+    if(!raw){msg('Draw and finish a custom route before exporting.');return;}
+    const parsed=JSON.parse(raw);
+    if(parsed?.geometry?.type!=='LineString'||!Array.isArray(parsed.geometry.coordinates)||parsed.geometry.coordinates.length<2)throw Error('The saved route is not a valid LineString.');
+    const json=JSON.stringify(parsed,null,2);
+    const url=URL.createObjectURL(new Blob([json],{type:'application/json;charset=utf-8'}));
+    const a=document.createElement('a');
+    a.href=url;a.download='hs2-route-custom.geojson';a.style.display='none';
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},60000);
+    msg('GeoJSON download requested. If Safari blocks it, use Copy GeoJSON below.');
+    let copy=$('traceCopy');
+    if(!copy){copy=document.createElement('button');copy.type='button';copy.id='traceCopy';copy.textContent='Copy GeoJSON';$('traceExport').after(copy);}
+    copy.onclick=async()=>{try{await navigator.clipboard.writeText(json);msg('GeoJSON copied. Paste into a plain-text file named hs2-route-custom.geojson.');}catch(e){const ta=document.createElement('textarea');ta.value=json;ta.rows=8;ta.style.width='100%';copy.after(ta);ta.select();msg('Select and copy the GeoJSON text, then save as hs2-route-custom.geojson.');}};
+  } catch(e){msg('GeoJSON export failed: '+e.message);}
+};
  $('traceReset').onclick=()=>{if(!confirm('Remove your locally saved tunnel trace and reload the repository route?'))return;localStorage.removeItem(CUSTOM_ROUTE_KEY);clearEdit();loadRoute();msg('Repository route restored.');};
 })();
 document.querySelector('#search').addEventListener('input',render);document.querySelector('#status').addEventListener('change',render);
