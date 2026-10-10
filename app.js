@@ -420,31 +420,46 @@ function refreshPinOptions(){
  sel.value=(old==='new'||old===''||!Number.isInteger(+old)||+old>=properties.length)?'new':old;
  updateRemoveLocalButton();
 }
+function selectedLocalProperty(){
+ const selected=document.querySelector('#pinProperty').value;
+ return selected==='new'?null:properties[Number(selected)]||null;
+}
+function localPropertyMatches(p,pins){
+ if(!p)return [];
+ const norm=v=>String(v??'').trim().toLowerCase().replace(/\s+/g,' ');
+ const id=norm(p.id), address=norm(p.address);
+ return Object.entries(pins).filter(([key,v])=>
+   key===pinKey(p)||
+   (id&&norm(v.id)===id)||
+   (address&&norm(v.address)===address)||
+   (id&&address&&norm(key)===id+'|'+address)
+ );
+}
 function updateRemoveLocalButton(){
  const button=document.querySelector('#removeLocalProperty');
- const selected=document.querySelector('#pinProperty').value;
- const p=selected==='new'?null:properties[Number(selected)];
- const pins=storedPins();
- const found=p&&Object.entries(pins).some(([key,v])=>key===pinKey(p)||(p.id&&String(v.id||'')===String(p.id))||(String(v.address||'').trim().toLowerCase()===String(p.address||'').trim().toLowerCase()));
- button.disabled=!found;
- button.title=found?'Remove the saved local entry from this browser; Google Sheets is not changed.':'This property has no locally saved record to remove.';
+ if(!button)return;
+ const p=selectedLocalProperty();
+ // Do not disable for a selected property: the editor may show a Sheet row
+ // while the local record uses a different saved identifier.
+ button.disabled=!p;
+ button.title=p?'Check for and remove this property’s locally saved record. Google Sheets is unchanged.':'Select a property first.';
 }
 document.querySelector('#removeLocalProperty').addEventListener('click',async()=>{
  const sel=document.querySelector('#pinProperty');
- const p=sel.value==='new'?null:properties[Number(sel.value)];
- if(!p)return;
+ const p=selectedLocalProperty();
+ if(!p){pinMsg('Select a property from the dropdown first.');return;}
  const pins=storedPins();
- const matches=Object.entries(pins).filter(([key,v])=>key===pinKey(p)||(p.id&&String(v.id||'')===String(p.id))||(String(v.address||'').trim().toLowerCase()===String(p.address||'').trim().toLowerCase()));
- if(!matches.length){pinMsg('No locally saved record found for this property.');updateRemoveLocalButton();return;}
- if(!confirm('Remove the locally saved record for '+p.address+'?\n\nThis does not delete anything from Google Sheets.'))return;
+ const matches=localPropertyMatches(p,pins);
+ if(!matches.length){pinMsg('No locally saved record matched '+p.address+'. Nothing was deleted.');return;}
+ if(!confirm('Remove '+matches.length+' locally saved record(s) for '+p.address+'?\n\nGoogle Sheets will not be changed.'))return;
  for(const [key] of matches)delete pins[key];
  try{localStorage.setItem(MANUAL_KEY,JSON.stringify(pins))}catch(e){pinMsg('Could not remove local property: '+e.message);return;}
  stopPin();sel.value='new';
  for(const id of ['pinAddress','pinPostcode','pinNotes','pinDamage'])document.querySelector('#'+id).value='';
- pinMsg('Local record removed. Refreshing the property list from Google Sheets…');
+ pinMsg('Local record removed. Reloading properties…');
  if(cfg.useGoogleSheet!==false)await loadGoogleSheet();
  else {properties=properties.filter(v=>v!==p);render();}
- pinMsg('Locally saved record removed. If the address is still in Google Sheets, its Sheet version will remain.');
+ pinMsg('Locally saved record removed. If it is still in Google Sheets, the Sheet version remains.');
 });
 function pinMsg(s){document.querySelector('#pinMessage').textContent=s}
 function stopPin(){
