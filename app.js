@@ -50,7 +50,8 @@ async function loadWardBoundary(){
       });
       if(!features.length)throw Error('Queen’s Park, Westminster not found in dataset');
       wardBoundaryLayer.clearLayers();wardBoundaryLayer.addData({type:'FeatureCollection',features});
-      status.textContent='ONS December 2024 ward boundary loaded';
+      status.textContent=url==='queens-park-ward.geojson'?'Saved Queen’s Park ward boundary loaded':'ONS December 2024 ward boundary loaded';
+      document.dispatchEvent(new CustomEvent('hs2-ward-loaded'));
       return;
     }catch(err){status.textContent='Ward boundary: '+err.message;}
   }
