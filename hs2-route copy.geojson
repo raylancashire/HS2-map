@@ -1,0 +1,200 @@
+{
+  "type": "FeatureCollection",
+  "name": "HS2 PC-01-004 georeferenced reference layers",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "HS2 route in tunnel \u2013 40\u00b0 anti-clockwise from previous build",
+        "source": "HS2 Property Schemes map PC-01-004 (June 2019)",
+        "status": "user-requested-40-degree-anticlockwise-visual-adjustment-unverified",
+        "note": "Previous 20\u00b0 clockwise line rotated 40\u00b0 anti-clockwise around its middle vertex in local metre coordinates. Net rotation 20\u00b0 anti-clockwise relative to pre-rotation build. NOT an official verified tunnel alignment."
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -0.2167,
+            51.5295314
+          ],
+          [
+            -0.2159563,
+            51.5298063
+          ],
+          [
+            -0.2152126,
+            51.5300811
+          ],
+          [
+            -0.2144688,
+            51.5303559
+          ],
+          [
+            -0.213725,
+            51.5306307
+          ],
+          [
+            -0.2129813,
+            51.5309055
+          ],
+          [
+            -0.2122375,
+            51.5311804
+          ],
+          [
+            -0.2114938,
+            51.5314552
+          ],
+          [
+            -0.21075,
+            51.53173
+          ],
+          [
+            -0.2100062,
+            51.5320048
+          ],
+          [
+            -0.2092625,
+            51.5322796
+          ],
+          [
+            -0.2085187,
+            51.5325545
+          ],
+          [
+            -0.207775,
+            51.5328293
+          ],
+          [
+            -0.2070312,
+            51.5331041
+          ],
+          [
+            -0.2062874,
+            51.5333789
+          ],
+          [
+            -0.2055437,
+            51.5336537
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "HS2 safeguarded area \u2013 sub-surface",
+        "source": "HS2 Property Schemes map PC-01-004 (June 2019)",
+        "status": "georeferenced-reference-trace",
+        "note": "Approximate vectorisation of the blue sub-surface safeguarded band from the official plan; reference only."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -0.2218,
+              51.53013
+            ],
+            [
+              -0.2198,
+              51.53036
+            ],
+            [
+              -0.2176,
+              51.53068
+            ],
+            [
+              -0.2162,
+              51.53113
+            ],
+            [
+              -0.2144,
+              51.53168
+            ],
+            [
+              -0.213,
+              51.53213
+            ],
+            [
+              -0.2113,
+              51.53228
+            ],
+            [
+              -0.209,
+              51.53293
+            ],
+            [
+              -0.2072,
+              51.53318
+            ],
+            [
+              -0.2057,
+              51.533229999999996
+            ],
+            [
+              -0.204,
+              51.53333
+            ],
+            [
+              -0.202,
+              51.53338
+            ],
+            [
+              -0.202,
+              51.53235
+            ],
+            [
+              -0.204,
+              51.5323
+            ],
+            [
+              -0.2057,
+              51.532199999999996
+            ],
+            [
+              -0.2072,
+              51.53215
+            ],
+            [
+              -0.209,
+              51.5319
+            ],
+            [
+              -0.2113,
+              51.53125
+            ],
+            [
+              -0.213,
+              51.5311
+            ],
+            [
+              -0.2144,
+              51.53065
+            ],
+            [
+              -0.2162,
+              51.5301
+            ],
+            [
+              -0.2176,
+              51.52965
+            ],
+            [
+              -0.2198,
+              51.52933
+            ],
+            [
+              -0.2218,
+              51.5291
+            ],
+            [
+              -0.2218,
+              51.53013
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}
