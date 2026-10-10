@@ -36,7 +36,7 @@ const wardBoundaryLayer=L.geoJSON(null,{
 async function loadWardBoundary(){
   const status=document.querySelector('#wardStatus');
   const endpoint='https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Wards_December_2024_Boundaries_UK_BGC/FeatureServer/0/query';
-  const params=new URLSearchParams({where:"WD24NM = 'Queen’s Park' OR WD24NM = 'Queen's Park'",outFields:'*',returnGeometry:'true',outSR:'4326',f:'geojson'});
+  const params=new URLSearchParams({where:"WD24NM LIKE 'Queen%Park'",outFields:'*',returnGeometry:'true',outSR:'4326',f:'geojson'});
   // Prefer a repository-hosted copy, if provided later, then the official ONS service.
   for(const url of ['queens-park-ward.geojson',endpoint+'?'+params.toString()]){
     try{
@@ -46,7 +46,7 @@ async function loadWardBoundary(){
         const a=f.properties||{};
         const name=String(a.WD24NM||a.WD24NM_EN||a.name||'').toLowerCase().replace(/[’]/g,"'");
         const district=String(a.LAD24NM||a.LAD24NM_EN||a.lad_name||'').toLowerCase();
-        return name==="queen's park" && (!district||district.includes('westminster'));
+        return name.replace(/[’‘]/g,"'")==="queen's park" && (!district||district.includes('westminster'));
       });
       if(!features.length)throw Error('Queen’s Park, Westminster not found in dataset');
       wardBoundaryLayer.clearLayers();wardBoundaryLayer.addData({type:'FeatureCollection',features});
@@ -418,7 +418,34 @@ function refreshPinOptions(){
  const old=sel.value;
  sel.innerHTML='<option value="new">+ New property</option>'+properties.map((p,i)=>`<option value="${i}">${esc(p.address)}${p.postcode?' ('+esc(p.postcode)+')':''}</option>`).join('');
  sel.value=(old==='new'||old===''||!Number.isInteger(+old)||+old>=properties.length)?'new':old;
+ updateRemoveLocalButton();
 }
+function updateRemoveLocalButton(){
+ const button=document.querySelector('#removeLocalProperty');
+ const selected=document.querySelector('#pinProperty').value;
+ const p=selected==='new'?null:properties[Number(selected)];
+ const pins=storedPins();
+ const found=p&&Object.entries(pins).some(([key,v])=>key===pinKey(p)||(p.id&&String(v.id||'')===String(p.id))||(String(v.address||'').trim().toLowerCase()===String(p.address||'').trim().toLowerCase()));
+ button.disabled=!found;
+ button.title=found?'Remove the saved local entry from this browser; Google Sheets is not changed.':'This property has no locally saved record to remove.';
+}
+document.querySelector('#removeLocalProperty').addEventListener('click',async()=>{
+ const sel=document.querySelector('#pinProperty');
+ const p=sel.value==='new'?null:properties[Number(sel.value)];
+ if(!p)return;
+ const pins=storedPins();
+ const matches=Object.entries(pins).filter(([key,v])=>key===pinKey(p)||(p.id&&String(v.id||'')===String(p.id))||(String(v.address||'').trim().toLowerCase()===String(p.address||'').trim().toLowerCase()));
+ if(!matches.length){pinMsg('No locally saved record found for this property.');updateRemoveLocalButton();return;}
+ if(!confirm('Remove the locally saved record for '+p.address+'?\n\nThis does not delete anything from Google Sheets.'))return;
+ for(const [key] of matches)delete pins[key];
+ try{localStorage.setItem(MANUAL_KEY,JSON.stringify(pins))}catch(e){pinMsg('Could not remove local property: '+e.message);return;}
+ stopPin();sel.value='new';
+ for(const id of ['pinAddress','pinPostcode','pinNotes','pinDamage'])document.querySelector('#'+id).value='';
+ pinMsg('Local record removed. Refreshing the property list from Google Sheets…');
+ if(cfg.useGoogleSheet!==false)await loadGoogleSheet();
+ else {properties=properties.filter(v=>v!==p);render();}
+ pinMsg('Locally saved record removed. If the address is still in Google Sheets, its Sheet version will remain.');
+});
 function pinMsg(s){document.querySelector('#pinMessage').textContent=s}
 function stopPin(){
  placingPin=false;map.getContainer().style.cursor='';
@@ -427,7 +454,7 @@ function stopPin(){
 }
 function selectPropertyForEditing(index){
  const p=properties[index];if(!p)return;
- stopPin();document.querySelector('#pinProperty').value=String(index);
+ stopPin();document.querySelector('#pinProperty').value=String(index);updateRemoveLocalButton();
  document.querySelector('#pinAddress').value=p.address;
  document.querySelector('#pinPostcode').value=p.postcode||'';
  document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';
@@ -442,6 +469,7 @@ function bindEditLocation(container){
  }));
 }
 document.querySelector('#pinProperty').addEventListener('change',e=>{
+ updateRemoveLocalButton();
  const p=properties[+e.target.value];if(e.target.value==='new'||!p){document.querySelector('#pinAddress').value='';document.querySelector('#pinPostcode').value='';document.querySelector('#pinNotes').value='';document.querySelector('#pinDamage').value='';return}
  document.querySelector('#pinAddress').value=p.address;document.querySelector('#pinPostcode').value=p.postcode||'';document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';
  focusProperty(p);
