@@ -28,6 +28,38 @@ let tunnelLayer=L.layerGroup().addTo(map);
 let zoneLayer=L.layerGroup();
 let corridorLayer=L.layerGroup().addTo(map);
 const markerLayer=L.layerGroup().addTo(map);
+// ONS December 2024 generalised electoral ward boundary.
+const wardBoundaryLayer=L.geoJSON(null,{
+  style:{color:'#763aa5',weight:3,opacity:1,fillColor:'#aa82c9',fillOpacity:.05},
+  onEachFeature:(feature,layer)=>layer.bindPopup('<strong>Queen’s Park Ward</strong><br>City of Westminster<br>ONS December 2024 electoral ward boundary')
+}).addTo(map);
+async function loadWardBoundary(){
+  const status=document.querySelector('#wardStatus');
+  const endpoint='https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Wards_December_2024_Boundaries_UK_BGC/FeatureServer/0/query';
+  const params=new URLSearchParams({where:"WD24NM = 'Queen’s Park' OR WD24NM = 'Queen's Park'",outFields:'*',returnGeometry:'true',outSR:'4326',f:'geojson'});
+  // Prefer a repository-hosted copy, if provided later, then the official ONS service.
+  for(const url of ['queens-park-ward.geojson',endpoint+'?'+params.toString()]){
+    try{
+      const response=await fetch(url);if(!response.ok)throw Error('HTTP '+response.status);
+      const data=await response.json();
+      const features=(data.features||[]).filter(f=>{
+        const a=f.properties||{};
+        const name=String(a.WD24NM||a.WD24NM_EN||a.name||'').toLowerCase().replace(/[’]/g,"'");
+        const district=String(a.LAD24NM||a.LAD24NM_EN||a.lad_name||'').toLowerCase();
+        return name==="queen's park" && (!district||district.includes('westminster'));
+      });
+      if(!features.length)throw Error('Queen’s Park, Westminster not found in dataset');
+      wardBoundaryLayer.clearLayers();wardBoundaryLayer.addData({type:'FeatureCollection',features});
+      status.textContent='ONS December 2024 ward boundary loaded';
+      return;
+    }catch(err){status.textContent='Ward boundary: '+err.message;}
+  }
+  status.textContent='Ward boundary unavailable. Check connection or add queens-park-ward.geojson to the repository.';
+}
+document.querySelector('#showWardBoundary').addEventListener('change',e=>e.target.checked?wardBoundaryLayer.addTo(map):map.removeLayer(wardBoundaryLayer));
+document.querySelector('#zoomWard').addEventListener('click',()=>{const b=wardBoundaryLayer.getBounds();if(b.isValid())map.fitBounds(b.pad(.08));});
+loadWardBoundary();
+
 let properties=[];
 let photoIndex=[];
 
