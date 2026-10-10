@@ -23,48 +23,11 @@ osmTiles.on('load',()=>{
 });
 
 const cfg=window.HS2_MAP_CONFIG||{};
-const CUSTOM_ROUTE_KEY='hs2qp:custom-tunnel-route:v1';
-const ROUTES_KEY='hs2qp:saved-tunnel-routes:v1';
-const ACTIVE_ROUTE_KEY='hs2qp:active-tunnel-route:v1';
-let routeDrawing=false,routeEditing=false,routeDraft=[],routeEditMarkers=[];
-
 let routeFeature=null, routeLines=[];
 let tunnelLayer=L.layerGroup().addTo(map);
 let zoneLayer=L.layerGroup();
 let corridorLayer=L.layerGroup().addTo(map);
 const markerLayer=L.layerGroup().addTo(map);
-// ONS December 2024 generalised electoral ward boundary.
-const wardBoundaryLayer=L.geoJSON(null,{
-  style:{color:'#763aa5',weight:3,opacity:1,fillColor:'#aa82c9',fillOpacity:.05},
-  onEachFeature:(feature,layer)=>layer.bindPopup('<strong>Queen’s Park Ward</strong><br>City of Westminster<br>ONS December 2024 electoral ward boundary')
-}).addTo(map);
-async function loadWardBoundary(){
-  const status=document.querySelector('#wardStatus');
-  const endpoint='https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Wards_December_2024_Boundaries_UK_BGC/FeatureServer/0/query';
-  const params=new URLSearchParams({where:"WD24NM LIKE 'Queen%Park'",outFields:'*',returnGeometry:'true',outSR:'4326',f:'geojson'});
-  // Prefer a repository-hosted copy, if provided later, then the official ONS service.
-  for(const url of ['queens-park-ward.geojson',endpoint+'?'+params.toString()]){
-    try{
-      const response=await fetch(url);if(!response.ok)throw Error('HTTP '+response.status);
-      const data=await response.json();
-      const features=(data.features||[]).filter(f=>{
-        const a=f.properties||{};
-        const name=String(a.WD24NM||a.WD24NM_EN||a.name||'').toLowerCase().replace(/[’]/g,"'");
-        const district=String(a.LAD24NM||a.LAD24NM_EN||a.lad_name||'').toLowerCase();
-        return name.replace(/[’‘]/g,"'")==="queen's park" && (!district||district.includes('westminster'));
-      });
-      if(!features.length)throw Error('Queen’s Park, Westminster not found in dataset');
-      wardBoundaryLayer.clearLayers();wardBoundaryLayer.addData({type:'FeatureCollection',features});
-      status.textContent='ONS December 2024 ward boundary loaded';
-      return;
-    }catch(err){status.textContent='Ward boundary: '+err.message;}
-  }
-  status.textContent='Ward boundary unavailable. Check connection or add queens-park-ward.geojson to the repository.';
-}
-document.querySelector('#showWardBoundary').addEventListener('change',e=>e.target.checked?wardBoundaryLayer.addTo(map):map.removeLayer(wardBoundaryLayer));
-document.querySelector('#zoomWard').addEventListener('click',()=>{const b=wardBoundaryLayer.getBounds();if(b.isValid())map.fitBounds(b.pad(.08));});
-loadWardBoundary();
-
 let properties=[];
 let photoIndex=[];
 
@@ -333,24 +296,23 @@ function fitAll(){
    openingFitObserver.disconnect();openingFitObserver=null;
  },2500);
 }
-async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());applyManualPins();const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=[];render();showUnresolved([]);setDataStatus(`Google Sheet could not be loaded: ${err.message}. No sample properties are displayed. Check Sheet sharing or import a CSV.`, 'error')}}
+async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());applyManualPins();render();fitAll();setDataStatus(`${properties.length} properties received · locating any missing coordinates…`,'loading');const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=[];render();showUnresolved([]);setDataStatus(`Google Sheet could not be loaded: ${err.message}. No sample properties are displayed. Check Sheet sharing or import a CSV.`, 'error')}}
 async function loadRoute(){
   tunnelLayer.clearLayers(); zoneLayer.clearLayers(); corridorLayer.clearLayers(); routeLines=[];
   try{
     const res=await fetch('hs2-route.geojson',{cache:'no-store'});
     if(!res.ok) throw Error('HTTP '+res.status);
-    let fc=await res.json();
-    try { const id=localStorage.getItem(ACTIVE_ROUTE_KEY); const item=JSON.parse(localStorage.getItem(ROUTES_KEY)||'[]').find(r=>r.id===id); const saved=item?.feature; if(saved?.geometry && (saved.geometry.type==='LineString'||saved.geometry.type==='MultiLineString')) fc={type:'FeatureCollection',features:[saved,...(fc.features||[]).filter(f=>f.geometry?.type==='Polygon'||f.geometry?.type==='MultiPolygon')]}; } catch(e){}
+    const fc=await res.json();
     const route=fc.features.find(f=>f.geometry&&(f.geometry.type==='LineString'||f.geometry.type==='MultiLineString'));
     const zone=fc.features.find(f=>f.geometry&&(f.geometry.type==='Polygon'||f.geometry.type==='MultiPolygon'));
     if(route){
       routeFeature=route;
       routeLines=route.geometry.type==='MultiLineString'?route.geometry.coordinates.map(line=>line.map(c=>[c[1],c[0]])):[route.geometry.coordinates.map(c=>[c[1],c[0]])];
-      L.geoJSON(route,{style:{color:'#142e63',weight:3,opacity:1,lineCap:'round'}}).addTo(tunnelLayer);
+      L.geoJSON(route,{style:{color:'#555',weight:3,opacity:.9,dashArray:'10 7',lineCap:'butt'}}).addTo(tunnelLayer);
       // Turf computes a true geographic 30 metre buffer, not a pixel-width stroke.
       if(window.turf && typeof turf.buffer==='function'){
         const corridor=turf.buffer(route,30,{units:'meters',steps:32});
-        L.geoJSON(corridor,{style:{color:'#315b9c',weight:1.5,opacity:.75,fillColor:'#648cc8',fillOpacity:.28},interactive:false}).addTo(corridorLayer);
+        L.geoJSON(corridor,{style:{color:'#bd3b3b',weight:1.5,opacity:.7,fillColor:'#e66b6b',fillOpacity:.24},interactive:false}).addTo(corridorLayer);
       }
     }
     if(zone){
@@ -362,64 +324,12 @@ async function loadRoute(){
     if(!map.hasLayer(tunnelLayer))tunnelLayer.addTo(map);
     if(map.hasLayer(zoneLayer))map.removeLayer(zoneLayer);
     if(!map.hasLayer(corridorLayer))corridorLayer.addTo(map);
-    document.querySelector('#routeStatus').textContent='Blue shading is an indicative 30 m buffer around each selected tunnel bore (overlaps may merge visually). A manually traced line is not official HS2 geometry or an eligibility boundary.';
+    document.querySelector('#routeStatus').textContent='Red shading is a calculated 30 m buffer either side of the current grey tunnel line. The line has NOT been verified against the source screenshot, so this corridor and house distances are indicative only, not an official HS2 eligibility boundary.';
   }catch(err){
     document.querySelector('#routeStatus').textContent='HS2 vector layer could not be loaded: '+err.message;
   }
   render();
 }
-// Multiple named local tunnel alignments; the repository route is always available.
-(function installTunnelEditor(){
- const target=document.querySelector('#routeStatus');if(!target)return;
- const panel=document.createElement('div');panel.id='tunnelEditor';panel.style.cssText='margin:12px 0;padding:12px;border:1px solid #c8d2e0;border-radius:8px';
- panel.innerHTML=`<strong>Saved tunnel routes</strong><p class="hint">Named routes are saved in this browser. Select a route to display its centreline and recalculate property distances. Export GeoJSON for backup.</p>
- <label for="routeSelect">Active route</label><select id="routeSelect" style="width:100%;margin:5px 0 8px"></select>
- <button type="button" id="routeDuplicate">Duplicate / Save as</button> <button type="button" id="routeRename">Rename</button> <button type="button" id="routeDelete">Delete selected</button>
- <p class="hint">Each alignment contains two independently editable bores, with a 30 m buffer around each. The second bore is initially a parallel approximation, not verified HS2 geometry.</p><label for="boreSelect">Tunnel to edit</label><select id="boreSelect"><option value="0">Tunnel 1</option><option value="1">Tunnel 2</option></select> <label for="boreOffset">Initial separation (metres)</label><input id="boreOffset" type="number" min="1" max="100" value="12" style="width:75px"> <button type="button" id="makeSecond">Generate / replace Tunnel 2</button><p class="hint">Draw or edit the selected route</p><button type="button" id="traceStart">Draw new route</button> <button type="button" id="traceFinish" disabled>Finish and save as new</button> <button type="button" id="traceUndo" disabled>Undo point</button> <button type="button" id="traceCancel" disabled>Cancel drawing</button> <button type="button" id="traceEdit">Edit selected points</button>
- <p class="hint">Backup and sharing</p><button type="button" id="traceExport">Export selected GeoJSON</button> <label class="file" style="display:block;margin-top:8px">Import GeoJSON <input type="file" id="traceImport" accept=".geojson,.json,application/geo+json,application/json"></label><button type="button" id="traceCopy">Copy GeoJSON</button><textarea id="traceFallback" rows="6" readonly style="display:none;width:100%;margin-top:8px" aria-label="GeoJSON backup"></textarea><p id="traceStatus" class="hint" role="status"></p>`;
- target.before(panel);
- const $=id=>document.getElementById(id),msg=t=>$('traceStatus').textContent=t;
- const validLine=c=>Array.isArray(c)&&c.length>=2&&c.every(p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(+p[0])&&Number.isFinite(+p[1])&&Math.abs(+p[0])<=180&&Math.abs(+p[1])<=90);
- const valid=f=>f?.type==='Feature'&&(f.geometry?.type==='LineString'?validLine(f.geometry.coordinates):f.geometry?.type==='MultiLineString'&&f.geometry.coordinates.length===2&&f.geometry.coordinates.every(validLine));
- const feature=coords=>({type:'Feature',properties:{name:'Manually traced HS2 reference line',source:'User-traced approximate alignment',verified:false},geometry:{type:'LineString',coordinates:coords.map(c=>[+c[0],+c[1]])}});
- const lines=f=>f.geometry.type==='MultiLineString'?f.geometry.coordinates:[f.geometry.coordinates];
- const pair=arr=>({type:'Feature',properties:{name:'HS2 two-bore alignment',source:'User-traced approximate alignment',verified:false,bufferMeters:30},geometry:{type:'MultiLineString',coordinates:arr}});
- function offsetSecond(coords,metres){if(!window.turf||typeof turf.lineOffset!=='function')throw Error('Turf lineOffset is unavailable.');const shifted=turf.lineOffset(turf.lineString(coords),metres,{units:'meters'});if(!validLine(shifted.geometry.coordinates))throw Error('Could not generate the second bore.');return shifted.geometry.coordinates;}
- let selectedBore=0;
- let routes=[];
- try{const v=JSON.parse(localStorage.getItem(ROUTES_KEY)||'[]');if(Array.isArray(v))routes=v.filter(r=>r&&typeof r.id==='string'&&valid(r.feature));}catch(e){}
- // Migrate the single-route editor's saved work without deleting its backup.
- try{const legacy=JSON.parse(localStorage.getItem(CUSTOM_ROUTE_KEY)||'null');if(valid(legacy)&&!routes.some(r=>JSON.stringify(r.feature.geometry)===JSON.stringify(legacy.geometry)))routes.push({id:'legacy-'+Date.now(),name:'Previous tunnel trace',feature:legacy});}catch(e){}
- let active=localStorage.getItem(ACTIVE_ROUTE_KEY)||'';
- if(!active&&routes.length===1)active=routes[0].id;
- function persist(){localStorage.setItem(ROUTES_KEY,JSON.stringify(routes));if(active)localStorage.setItem(ACTIVE_ROUTE_KEY,active);else localStorage.removeItem(ACTIVE_ROUTE_KEY);}
- function refresh(){const sel=$('routeSelect');sel.replaceChildren();const base=new Option('Repository reference route (original)','');sel.add(base);routes.forEach(r=>sel.add(new Option(r.name,r.id)));if(!routes.some(r=>r.id===active))active='';sel.value=active;const custom=!!active;$('routeRename').disabled=!custom;$('routeDelete').disabled=!custom;$('routeDuplicate').disabled=!routeFeature;$('traceEdit').disabled=!routeFeature;$('traceExport').disabled=!routeFeature;$('traceCopy').disabled=!routeFeature;}
- function storeAndLoad(){persist();clearEdit();loadRoute().then(refresh);}
- function uniqueId(){return 'route-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,9)}
- function add(f,name){if(!valid(f))throw Error('GeoJSON must contain a LineString with at least two valid coordinates.');const item={id:uniqueId(),name,feature:JSON.parse(JSON.stringify(f))};routes.push(item);active=item.id;storeAndLoad();return item;}
- function namePrompt(defaultName){const v=prompt('Name this tunnel route:',defaultName);return v===null?null:v.trim().slice(0,100);}
- $('boreSelect').onchange=e=>{selectedBore=+e.target.value;clearEdit();msg('Selected Tunnel '+(selectedBore+1)+'.');};
- $('makeSecond').onclick=()=>{if(!routeFeature)return;const metres=Number($('boreOffset').value);if(!Number.isFinite(metres)||metres<1||metres>100){msg('Enter a separation between 1 and 100 metres.');return;}try{const a=lines(routeFeature);const generated=offsetSecond(a[0],metres);const f=pair([a[0],generated]);const r=current();if(r){if(a.length===2&&!confirm('Replace Tunnel 2 in '+r.name+'?'))return;r.feature=f;storeAndLoad();}else{const name=namePrompt('Two-tunnel reference');if(!name)return;add(f,name);}msg('Tunnel 2 generated '+metres+' m to the side of Tunnel 1. Edit its vertices to align with the HS2 reference.');}catch(e){msg('Generation failed: '+e.message);}};
- const preview=L.polyline([],{color:'#142e63',weight:4,dashArray:'5 5'}).addTo(map);
- function setDraw(on){routeDrawing=on;$('traceFinish').disabled=!on;$('traceUndo').disabled=!on;$('traceCancel').disabled=!on;$('traceStart').disabled=on;map.getContainer().style.cursor=on?'crosshair':'';}
- function clearEdit(){routeEditMarkers.forEach(m=>map.removeLayer(m));routeEditMarkers=[];routeEditing=false;$('traceEdit').textContent='Edit selected points';}
- function current(){return routes.find(r=>r.id===active)}
- $('routeSelect').onchange=e=>{if(routeDrawing){msg('Finish or cancel drawing before switching routes.');$('routeSelect').value=active;return;}active=e.target.value;storeAndLoad();msg(active?'Loaded '+current().name:'Repository reference route loaded.');};
- $('routeDuplicate').onclick=()=>{if(!routeFeature)return;const name=namePrompt((current()?.name||'Repository reference')+' copy');if(!name)return;try{add(routeFeature,name);msg('Saved a separate copy: '+name);}catch(e){msg(e.message);}};
- $('routeRename').onclick=()=>{const r=current();if(!r)return;const name=namePrompt(r.name);if(!name)return;r.name=name;persist();refresh();msg('Route renamed.');};
- $('routeDelete').onclick=()=>{const r=current();if(!r)return;if(!confirm('Delete saved route "'+r.name+'" from this browser? This cannot be undone unless exported.'))return;routes=routes.filter(x=>x.id!==r.id);active='';storeAndLoad();msg('Saved route deleted. Repository reference selected.');};
- $('traceStart').onclick=()=>{clearEdit();routeDraft=[];preview.setLatLngs([]);setDraw(true);msg('Click along the map to trace a route.');};
- map.on('click',e=>{if(!routeDrawing)return;routeDraft.push([e.latlng.lng,e.latlng.lat]);preview.setLatLngs(routeDraft.map(c=>[c[1],c[0]]));msg(routeDraft.length+' points traced.');});
- $('traceUndo').onclick=()=>{routeDraft.pop();preview.setLatLngs(routeDraft.map(c=>[c[1],c[0]]));};
- $('traceCancel').onclick=()=>{routeDraft=[];preview.setLatLngs([]);setDraw(false);msg('Drawing cancelled; saved routes unchanged.');};
- $('traceFinish').onclick=()=>{if(routeDraft.length<2){msg('Add at least two points.');return;}const name=namePrompt('Tunnel trace '+new Date().toLocaleDateString('en-GB'));if(!name)return;try{const r=current();if(r&&routeFeature?.geometry.type==='MultiLineString'){const arr=lines(routeFeature).map(c=>c.map(p=>p.slice()));arr[selectedBore]=routeDraft.map(c=>c.slice());r.feature=pair(arr);storeAndLoad();}else{const metres=Number($('boreOffset').value)||12;add(pair([routeDraft.map(c=>c.slice()),offsetSecond(routeDraft,metres)]),name);}preview.setLatLngs([]);setDraw(false);msg('Saved alignment. Tunnel 2 can be adjusted independently.');}catch(e){msg('Save failed: '+e.message);}};
- $('traceEdit').onclick=()=>{if(routeEditing){clearEdit();return;}if(!routeFeature)return;const arr=lines(routeFeature).map(line=>line.map(c=>c.slice()));const coords=arr[Math.min(selectedBore,arr.length-1)];routeEditing=true;$('traceEdit').textContent='Stop editing';coords.forEach((c,i)=>{const m=L.marker([c[1],c[0]],{draggable:true,autoPan:true}).addTo(map);m.on('dragend',()=>{coords[i]=[m.getLatLng().lng,m.getLatLng().lat];let r=current();const updated=arr.length===2?pair(arr):feature(coords);if(!r){const name=namePrompt('Edited repository reference');if(!name){m.setLatLng([c[1],c[0]]);return;}try{add(updated,name);msg('Edited route saved as '+name);}catch(e){msg(e.message);}return;}r.feature=updated;storeAndLoad();msg('Tunnel '+(selectedBore+1)+' changes saved to '+r.name+'.');});routeEditMarkers.push(m);});msg('Drag a Tunnel '+(selectedBore+1)+' point to edit. Changes save on release.');};
- function exportData(){if(!routeFeature||!valid(routeFeature))throw Error('No valid route is selected.');return JSON.stringify(routeFeature,null,2);}
- $('traceExport').onclick=()=>{try{const json=exportData(),name=(current()?.name||'repository-route').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'hs2-route';$('traceFallback').value=json;const blob=new Blob([json],{type:'application/geo+json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name+'.geojson';a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},60000);msg('Download requested. If Safari blocks it, use Copy GeoJSON.');}catch(e){msg('Export failed: '+e.message);}};
- $('traceCopy').onclick=async()=>{try{const json=exportData();$('traceFallback').value=json;try{await navigator.clipboard.writeText(json);msg('GeoJSON copied to clipboard.');}catch(e){$('traceFallback').style.display='block';$('traceFallback').focus();$('traceFallback').select();msg('Press Command+C to copy the selected GeoJSON.');}}catch(e){msg(e.message);}};
- $('traceImport').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{const obj=JSON.parse(await f.text());const candidate=obj.type==='FeatureCollection'?obj.features?.find(valid):obj.type==='Feature'?obj:obj.type==='LineString'?feature(obj.coordinates):obj.type==='MultiLineString'?{type:'Feature',properties:{},geometry:obj}:null;if(!valid(candidate))throw Error('No valid LineString found in the file.');const name=namePrompt(f.name.replace(/\.(geojson|json)$/i,''));if(!name)return;add(candidate,name);msg('Imported '+name+'.');}catch(err){msg('Import failed: '+err.message);}finally{e.target.value='';}};
- persist();refresh();
-})();
 document.querySelector('#search').addEventListener('input',render);document.querySelector('#status').addEventListener('change',render);
 document.querySelector('#showCorridor').addEventListener('change',e=>e.target.checked?corridorLayer.addTo(map):map.removeLayer(corridorLayer));
 document.querySelector('#showTunnel').addEventListener('change',e=>e.target.checked?tunnelLayer.addTo(map):map.removeLayer(tunnelLayer));document.querySelector('#showZone').addEventListener('change',e=>e.target.checked?zoneLayer.addTo(map):map.removeLayer(zoneLayer));document.querySelector('#showHouses').addEventListener('change',e=>e.target.checked?markerLayer.addTo(map):map.removeLayer(markerLayer));
@@ -437,7 +347,14 @@ document.querySelector('#showHouses').checked=true;
 document.querySelector('#showTunnel').checked=true;
 document.querySelector('#showZone').checked=false;
 document.querySelector('#showCorridor').checked=true;
-properties=[];render();loadRoute().then(()=>{if(cfg.useGoogleSheet!==false)loadGoogleSheet();else setDataStatus('Google Sheet loading is disabled. Import a CSV to display properties.','')});
+// Load the property sheet and tunnel geometry independently. A route failure
+// must never prevent the Google Sheet from loading.
+properties=[];
+try{render()}catch(e){console.error('Initial render failed',e)}
+if(cfg.useGoogleSheet!==false){
+  loadGoogleSheet().catch(e=>setDataStatus('Property loading failed: '+e.message,'error'));
+}else setDataStatus('Google Sheet loading is disabled.','');
+loadRoute().catch(e=>console.error('Tunnel route loading failed',e));
 
 
 // Manual pinpoints: explicit browser-local overrides, never silently written to Google Sheets.
@@ -476,54 +393,7 @@ function refreshPinOptions(){
  const old=sel.value;
  sel.innerHTML='<option value="new">+ New property</option>'+properties.map((p,i)=>`<option value="${i}">${esc(p.address)}${p.postcode?' ('+esc(p.postcode)+')':''}</option>`).join('');
  sel.value=(old==='new'||old===''||!Number.isInteger(+old)||+old>=properties.length)?'new':old;
- updateRemoveLocalButton();
 }
-function selectedLocalProperty(){
- const selected=document.querySelector('#pinProperty').value;
- return selected==='new'?null:properties[Number(selected)]||null;
-}
-function localPropertyMatches(p,pins){
- if(!p)return [];
- const norm=v=>String(v??'').trim().toLowerCase().replace(/\s+/g,' ');
- const id=norm(p.id);
- const address=norm(p.address);
- // An ID is the unique identity. Never delete a different ID just
- // because it has the same street address.
- return Object.entries(pins).filter(([key,v])=>{
-   const savedId=norm(v.id);
-   const keyId=norm(key.split('|')[0]);
-   if(id)return savedId===id || (!savedId && keyId===id);
-   // For records with no ID, require an exact key match; do not
-   // delete every property sharing an address.
-   return !savedId && norm(key)===norm(pinKey(p)) && !!address;
- });
-}
-function updateRemoveLocalButton(){
- const button=document.querySelector('#removeLocalProperty');
- if(!button)return;
- const p=selectedLocalProperty();
- // Do not disable for a selected property: the editor may show a Sheet row
- // while the local record uses a different saved identifier.
- button.disabled=!p;
- button.title=p?'Check for and remove this property’s locally saved record. Google Sheets is unchanged.':'Select a property first.';
-}
-document.querySelector('#removeLocalProperty').addEventListener('click',async()=>{
- const sel=document.querySelector('#pinProperty');
- const p=selectedLocalProperty();
- if(!p){pinMsg('Select a property from the dropdown first.');return;}
- const pins=storedPins();
- const matches=localPropertyMatches(p,pins);
- if(!matches.length){pinMsg('No locally saved record matched '+p.address+'. Nothing was deleted.');return;}
- if(!confirm('Remove '+matches.length+' locally saved record(s) for '+p.address+' (Property ID: '+(p.id||'not assigned')+')?\n\nOther property IDs and Google Sheets will not be changed.'))return;
- for(const [key] of matches)delete pins[key];
- try{localStorage.setItem(MANUAL_KEY,JSON.stringify(pins))}catch(e){pinMsg('Could not remove local property: '+e.message);return;}
- stopPin();sel.value='new';
- for(const id of ['pinAddress','pinPostcode','pinNotes','pinDamage'])document.querySelector('#'+id).value='';
- pinMsg('Local record removed. Reloading properties…');
- if(cfg.useGoogleSheet!==false)await loadGoogleSheet();
- else {properties=properties.filter(v=>v!==p);render();}
- pinMsg('Locally saved record removed. If it is still in Google Sheets, the Sheet version remains.');
-});
 function pinMsg(s){document.querySelector('#pinMessage').textContent=s}
 function stopPin(){
  placingPin=false;map.getContainer().style.cursor='';
@@ -532,7 +402,7 @@ function stopPin(){
 }
 function selectPropertyForEditing(index){
  const p=properties[index];if(!p)return;
- stopPin();document.querySelector('#pinProperty').value=String(index);updateRemoveLocalButton();
+ stopPin();document.querySelector('#pinProperty').value=String(index);
  document.querySelector('#pinAddress').value=p.address;
  document.querySelector('#pinPostcode').value=p.postcode||'';
  document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';
@@ -547,7 +417,6 @@ function bindEditLocation(container){
  }));
 }
 document.querySelector('#pinProperty').addEventListener('change',e=>{
- updateRemoveLocalButton();
  const p=properties[+e.target.value];if(e.target.value==='new'||!p){document.querySelector('#pinAddress').value='';document.querySelector('#pinPostcode').value='';document.querySelector('#pinNotes').value='';document.querySelector('#pinDamage').value='';return}
  document.querySelector('#pinAddress').value=p.address;document.querySelector('#pinPostcode').value=p.postcode||'';document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';
  focusProperty(p);
