@@ -80,3 +80,9 @@ main>#map{height:100%;min-height:0;min-width:0;overflow:hidden;}
 
 .webador-public .route-admin{display:none!important}
 #routeVersions select{width:100%}
+
+.parallel-controls{margin:1rem 0;padding:.75rem;border:1px solid #d5dce2;border-radius:6px}.parallel-controls h3{margin:.1rem 0 .65rem;font-size:1rem}.parallel-controls label{display:block;margin:.5rem 0}.parallel-controls input,.parallel-controls select{max-width:100%;box-sizing:border-box}
+
+/* Twin tunnel comparison controls */
+#compareRoutes select{width:100%;max-width:100%}
+#compareRoutes .check{display:flex;align-items:center;gap:8px}

@@ -32,6 +32,29 @@
     if(!feature())throw Error('No LineString tunnel alignment found');
   }
   document.addEventListener('hs2-route-version-changed',()=>{active=false;clearHandles();source=null;working=null;dirty=false;start.disabled=false;stop.disabled=true;download.disabled=true;say('Selected route changed. Click Edit tunnel alignment to edit this version.');});
+  // Turf offset uses a signed distance in metres; negative means right.
+  document.getElementById('parallelGenerate').addEventListener('click',async()=>{
+    try{
+      const distance=Number(document.getElementById('parallelDistance').value);
+      if(!Number.isFinite(distance)||distance<1||distance>1000)throw Error('Enter a separation between 1 and 1000 metres.');
+      if(!window.turf||typeof turf.lineOffset!=='function')throw Error('The route offset library is unavailable.');
+      // Always derive from the selected published route, not a prior preview.
+      await readSource();
+      const route=feature();
+      const side=document.getElementById('parallelSide').value;
+      const signed=distance*(side==='right'?-1:1);
+      const offset=turf.lineOffset(turf.lineString(route.geometry.coordinates),signed,{units:'meters'});
+      if(!offset?.geometry?.coordinates?.length)throw Error('Could not generate the parallel route.');
+      route.geometry.coordinates=offset.geometry.coordinates;
+      route.properties={...(route.properties||{}),parallel_of:window.hs2ActiveRouteFile||'hs2-route.geojson',offset_metres:distance,offset_side:side,provisional:true};
+      dirty=true;download.disabled=false;
+      await loadRoute(working);
+      if(active)makeHandles();
+      const filename=document.getElementById('routeVersionName');
+      if(filename&&filename.value==='hs2-route-alternative')filename.value='hs2-route-parallel-'+side+'-'+distance+'m';
+      say('Parallel route previewed '+distance+' m to the '+side+'. Download as a new GeoJSON to save; the original file has not changed.');
+    }catch(e){say('Parallel route could not be generated: '+e.message)}
+  });
   start.addEventListener('click',async()=>{
     try{if(!working)await readSource();active=true;start.disabled=true;stop.disabled=false;makeHandles();say('Drag purple handles to reposition the provisional tunnel route.');}
     catch(e){say(e.message)}
