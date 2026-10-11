@@ -70,8 +70,6 @@ main>#map{height:100%;min-height:0;min-width:0;overflow:hidden;}
 .webador-public #csvImportHelp,
 .webador-public #photoImportSection{display:none!important}
 
-/* Hide editing/import utilities regardless of URL, iframe parameters or caching. */
-#csvImportControl,#csvImportHelp,#photoImportSection{display:none!important}
 
 /* Route maintenance is available only on standalone GitHub Pages. */
 .webador-public #routeEditor{display:none!important}
@@ -87,15 +85,9 @@ main>#map{height:100%;min-height:0;min-width:0;overflow:hidden;}
 #compareRoutes select{width:100%;max-width:100%}
 #compareRoutes .check{display:flex;align-items:center;gap:8px}
 
-/* Public Webador view: keep tunnel layers visible, hide route-version and twin-tunnel controls. */
-.webador-public #routeVersions,
-.webador-public #compareRoutes{display:none!important}
-.webador-public #compareRoutes {
-  display: none !important;
-  /* Hide maintenance controls on public Webador map */
+/* Public Webador view: hide maintenance panels, preserve visible map layers. */
 .webador-public #compareRoutes,
 .webador-public #routeVersions,
-.webador-public #wardEditor {
-  display: none !important;
-
-}
+.webador-public #wardEditor,
+.webador-public #routeEditor,
+.webador-public .route-admin { display:none!important; }
