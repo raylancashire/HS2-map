@@ -18,6 +18,119 @@ if (HS2_PUBLIC_DISPLAY) {
   document.head.appendChild(publicStyle);
 }
 
+
+// Public defaults are published as a repository JSON file, not stored only in the editor's browser.
+const HS2_PUBLIC_DEFAULTS={
+  version:1,center:[51.5340,-0.2050],zoom:15,distanceSource:'published2013both',
+  layers:{properties:true,editableTunnel:true,buffer:true,zone:false,
+    published2013:true,queenWard:true,safeguardingSubsurface:false,
+    safeguardingSurface:false,safeguardingLimits:false}
+};
+let hs2PublicSettings=structuredClone(HS2_PUBLIC_DEFAULTS);
+let hs2SettingsReady=false;
+let hs2PublishedReady=false;
+let hs2SettingsLoad=fetch('public-settings.json',{cache:'no-store'})
+  .then(async r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()})
+  .then(data=>{
+    if(!data||data.version!==1||!Array.isArray(data.center)||data.center.length!==2
+       ||!data.center.every(Number.isFinite)||Math.abs(data.center[0])>90
+       ||Math.abs(data.center[1])>180||!Number.isInteger(data.zoom)
+       ||data.zoom<1||data.zoom>19||!data.layers||typeof data.layers!=='object')
+       throw Error('Invalid public settings');
+    hs2PublicSettings={...HS2_PUBLIC_DEFAULTS,...data,layers:{...HS2_PUBLIC_DEFAULTS.layers,...data.layers}};
+    return hs2PublicSettings;
+  }).catch(e=>{console.warn('Using built-in public defaults:',e.message);return hs2PublicSettings})
+  .finally(()=>{hs2SettingsReady=true;if(HS2_PUBLIC_DISPLAY)hs2ApplyPublicSettings();});
+function hs2LayerToggle(id,visible){
+  const input=document.getElementById(id);
+  if(!input||input.disabled)return;
+  input.checked=!!visible;
+  input.dispatchEvent(new Event('change',{bubbles:true}));
+}
+function hs2ApplyPublicSettings(){
+  if(!hs2SettingsReady)return;
+  const s=hs2PublicSettings,l=s.layers;
+  const ids={properties:'showHouses',editableTunnel:'showTunnel',buffer:'showCorridor',
+    zone:'showZone',published2013:'showPublishedCentreline2013',queenWard:'showWardBoundary',
+    safeguardingSubsurface:'showSubsurface2019',
+    safeguardingSurface:'showSurface2019',
+    safeguardingLimits:'showLimits2019'};
+  Object.entries(ids).forEach(([key,id])=>{if(typeof l[key]==='boolean')hs2LayerToggle(id,l[key]);});
+  const select=document.getElementById('propertyDistanceSource');
+  if(select&&s.distanceSource&&Array.from(select.options).some(o=>o.value===s.distanceSource&&!o.disabled)){
+    select.value=s.distanceSource;select.dispatchEvent(new Event('change',{bubbles:true}));
+  }
+  openingFitActive=false;
+  if(openingFitObserver)openingFitObserver.disconnect();
+  clearTimeout(openingFitTimer);
+  map.invalidateSize({pan:false});
+  map.setView(s.center,s.zoom,{animate:false});
+}
+function hs2BuildPublicSettingsPanel(){
+  if(HS2_PUBLIC_DISPLAY)return;
+  const aside=document.querySelector('main aside');
+  if(!aside)return;
+  const section=document.createElement('section');section.id='publicSettingsEditor';
+  section.innerHTML=`<h2>Public Map Settings</h2>
+    <p class="hint">Set the map view and layer visibility here, then export the settings to your GitHub repository. The Webador map reads the published file.</p>
+    <label>Opening zoom <input id="publicZoom" type="number" min="1" max="19" step="1"></label>
+    <p class="hint">Opening centre: <span id="publicCentre"></span></p>
+    <button type="button" id="publicCapture">Use current map view</button>
+    <div id="publicLayerChecks"></div>
+    <label>Property distance source <select id="publicDistance">
+      <option value="published2013both">Nearest of both published 2013 alignments</option>
+      <option value="published2013">Published HS2 DOWN MAIN (2013)</option>
+      <option value="editable">Editable tunnel route</option>
+    </select></label>
+    <button type="button" id="publicPreview">Preview public defaults</button>
+    <button type="button" id="publicExport">Export public-settings.json</button>
+    <p id="publicSettingsStatus" class="hint" role="status"></p>`;
+  aside.insertBefore(section,aside.firstChild);
+  const names={properties:'Property pinpoints',editableTunnel:'Editable tunnel routes',
+    buffer:'30 m indicative buffer',zone:'Tunnel zone',published2013:'Published 2013 alignments',
+    queenWard:'Queen’s Park boundary',safeguardingSubsurface:'Sub-surface safeguarding',
+    safeguardingSurface:'Surface safeguarding',safeguardingLimits:'Safeguarding limits'};
+  const checks=section.querySelector('#publicLayerChecks');
+  Object.entries(names).forEach(([key,name])=>{
+    const label=document.createElement('label');label.className='check';
+    const input=document.createElement('input');input.type='checkbox';input.dataset.publicLayer=key;
+    label.append(input,document.createTextNode(' '+name));checks.append(label);
+  });
+  const status=section.querySelector('#publicSettingsStatus');
+  function populate(){
+    section.querySelector('#publicZoom').value=hs2PublicSettings.zoom;
+    section.querySelector('#publicCentre').textContent=hs2PublicSettings.center.map(x=>x.toFixed(6)).join(', ');
+    section.querySelector('#publicDistance').value=hs2PublicSettings.distanceSource;
+    section.querySelectorAll('[data-public-layer]').forEach(i=>i.checked=!!hs2PublicSettings.layers[i.dataset.publicLayer]);
+  }
+  function collect(){
+    const zoom=Number(section.querySelector('#publicZoom').value);
+    if(!Number.isInteger(zoom)||zoom<1||zoom>19)throw Error('Zoom must be between 1 and 19');
+    const layers={...hs2PublicSettings.layers};
+    section.querySelectorAll('[data-public-layer]').forEach(i=>layers[i.dataset.publicLayer]=i.checked);
+    return {...hs2PublicSettings,zoom,layers,distanceSource:section.querySelector('#publicDistance').value};
+  }
+  section.querySelector('#publicCapture').onclick=()=>{
+    hs2PublicSettings.center=[+map.getCenter().lat.toFixed(7),+map.getCenter().lng.toFixed(7)];
+    hs2PublicSettings.zoom=map.getZoom();populate();status.textContent='Current map centre and zoom captured.';
+  };
+  section.querySelector('#publicPreview').onclick=()=>{
+    try{hs2PublicSettings=collect();hs2ApplyPublicSettings();status.textContent='Preview applied. These settings are not published until the JSON file is uploaded.'}
+    catch(e){status.textContent=e.message}
+  };
+  section.querySelector('#publicExport').onclick=()=>{
+    try{
+      hs2PublicSettings=collect();
+      const blob=new Blob([JSON.stringify(hs2PublicSettings,null,2)+'\n'],{type:'application/json'});
+      const url=URL.createObjectURL(blob),a=document.createElement('a');
+      a.href=url;a.download='public-settings.json';document.body.append(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),30000);
+      status.textContent='Downloaded. Replace public-settings.json in your GitHub repository to publish.';
+    }catch(e){status.textContent=e.message}
+  };
+  hs2SettingsLoad.then(()=>{populate();status.textContent='Repository defaults loaded. Move the map, capture the view, then export.'});
+}
+
 const map=L.map('map',{zoomControl:true}).setView([51.5340,-0.2050],15);
 
 // OpenStreetMap standard raster tiles. OSMF now specifies this exact host
@@ -398,6 +511,7 @@ let openingFitTimer=null;
 function fitAll(){
  const pts=validProperties().map(p=>[Number(p.latitude),Number(p.longitude)]);
  if(!pts.length)return;
+ if(HS2_PUBLIC_DISPLAY && hs2SettingsReady){hs2ApplyPublicSettings();return;}
  openingFitActive=true;
  const bounds=L.latLngBounds(pts);
  const applyFit=()=>{
@@ -422,7 +536,7 @@ function fitAll(){
    openingFitObserver.disconnect();openingFitObserver=null;
  },2500);
 }
-async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());applyManualPins();const geo=await resolveMissingCoordinates(properties);render();fitAll();showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=[];render();showUnresolved([]);setDataStatus(`Google Sheet could not be loaded: ${err.message}. No sample properties are displayed. Check Sheet sharing or import a CSV.`, 'error')}}
+async function loadGoogleSheet(){const url=sheetCsvUrl();if(!url){setDataStatus('No Google Sheet is configured.','error');return}setDataStatus('Loading properties from Google Sheet…','loading');try{const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error(`Google returned HTTP ${res.status}`);properties=parseCSV(await res.text());applyManualPins();const geo=await resolveMissingCoordinates(properties);render();fitAll();if(HS2_PUBLIC_DISPLAY)hs2SettingsLoad.then(hs2ApplyPublicSettings);showUnresolved(geo.failed);setDataStatus(`${properties.length} properties loaded from Google Sheet · ${validProperties().length} located · ${new Date().toLocaleString('en-GB')}`,'ok')}catch(err){properties=[];render();showUnresolved([]);setDataStatus(`Google Sheet could not be loaded: ${err.message}. No sample properties are displayed. Check Sheet sharing or import a CSV.`, 'error')}}
 async function loadRoute(){
   tunnelLayer.clearLayers(); zoneLayer.clearLayers(); corridorLayer.clearLayers(); routeLines=[];
   try{
@@ -554,6 +668,7 @@ async function loadSafeguarding2019(){
     }catch(err){checkbox.checked=false;checkbox.disabled=true;return item.name+': unavailable ('+err.message+')';}
   }));
   status.textContent='HS2 Ltd June 2019 · '+results.join(' · ')+'. Not a current legal safeguarding determination.';
+  if(HS2_PUBLIC_DISPLAY)hs2SettingsLoad.then(hs2ApplyPublicSettings);
 }
 loadSafeguarding2019();
 
@@ -620,6 +735,8 @@ loadSafeguarding2019();
         distanceRouteSource='published2013both';
         render();
       }
+      hs2PublishedReady=true;
+      if(HS2_PUBLIC_DISPLAY)hs2ApplyPublicSettings();
       note.textContent=data.features.length+' historical centreline feature(s) loaded: blue = HS2 DOWN MAIN; pink = HS1 LINK. Property colours use the nearest of the two historical lines by default; change the distance source above if needed.';
     }).catch(e=>{checkbox.disabled=true;note.textContent='Published 2013 centreline unavailable: '+e.message;});
 })();
@@ -640,6 +757,7 @@ document.querySelector('#showHouses').checked=true;
 document.querySelector('#showTunnel').checked=true;
 document.querySelector('#showZone').checked=false;
 document.querySelector('#showCorridor').checked=true;
+hs2BuildPublicSettingsPanel();
 properties=[];render();loadRoute().then(()=>{if(cfg.useGoogleSheet!==false)loadGoogleSheet();else setDataStatus('Google Sheet loading is disabled. Import a CSV to display properties.','')});
 
 

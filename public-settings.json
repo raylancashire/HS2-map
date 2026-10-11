@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "center": [
+    51.534,
+    -0.205
+  ],
+  "zoom": 15,
+  "distanceSource": "published2013both",
+  "layers": {
+    "properties": true,
+    "editableTunnel": true,
+    "buffer": true,
+    "zone": false,
+    "published2013": true,
+    "queenWard": true,
+    "safeguardingSubsurface": false,
+    "safeguardingSurface": false,
+    "safeguardingLimits": false
+  }
+}
