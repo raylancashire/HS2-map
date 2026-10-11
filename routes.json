@@ -1,6 +1,18 @@
 [
-  {"name":"West Line","file":"hs2-route.geojson",
-  "name":"East Line","file":"hs2-route-parallel-left-20m"
+  {
+    "name": "West Line (existing)",
+    "file": "hs2-route.geojson"
+  },
+  {
+    "name": "East Line (existing parallel)",
+    "file": "hs2-route-parallel-left-20m.geojson"
+  },
+  {
+    "name": "Provisional Up Line — reference",
+    "file": "hs2-up-line.geojson"
+  },
+  {
+    "name": "Provisional Down Line — 20 m offset",
+    "file": "hs2-down-line.geojson"
   }
-
 ]
