@@ -84,6 +84,8 @@ function hs2BuildPublicSettingsPanel(){
     </select></label>
     <button type="button" id="publicPreview">Preview public defaults</button>
     <button type="button" id="publicExport">Export public-settings.json</button>
+    <button type="button" id="publicCopy" style="margin-top:6px">Show / copy settings (Safari fallback)</button>
+    <div id="publicJsonFallback" hidden><p class="hint">If Safari does not download the file, copy the text below into a plain-text file named <strong>public-settings.json</strong>.</p><textarea id="publicJsonText" rows="12" spellcheck="false" style="width:100%;font-family:monospace"></textarea><button type="button" id="publicSelectAll">Select all JSON</button></div>
     <p id="publicSettingsStatus" class="hint" role="status"></p>`;
   aside.insertBefore(section,aside.firstChild);
   const names={properties:'Property pinpoints',editableTunnel:'Editable tunnel routes',
@@ -118,16 +120,34 @@ function hs2BuildPublicSettingsPanel(){
     try{hs2PublicSettings=collect();hs2ApplyPublicSettings();status.textContent='Preview applied. These settings are not published until the JSON file is uploaded.'}
     catch(e){status.textContent=e.message}
   };
+  function exportText(){
+    hs2PublicSettings=collect();
+    return JSON.stringify(hs2PublicSettings,null,2)+'\n';
+  }
+  function showFallback(json){
+    const wrap=section.querySelector('#publicJsonFallback');
+    const area=section.querySelector('#publicJsonText');
+    wrap.hidden=false;area.value=json;
+    status.textContent='Settings shown below. If no download appears, select and copy the JSON into a file named public-settings.json.';
+  }
   section.querySelector('#publicExport').onclick=()=>{
     try{
-      hs2PublicSettings=collect();
-      const blob=new Blob([JSON.stringify(hs2PublicSettings,null,2)+'\n'],{type:'application/json'});
-      const url=URL.createObjectURL(blob),a=document.createElement('a');
-      a.href=url;a.download='public-settings.json';document.body.append(a);a.click();a.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),30000);
-      status.textContent='Downloaded. Replace public-settings.json in your GitHub repository to publish.';
+      const json=exportText();
+      // Safari can refuse blob: downloads with WebKitBlobResource error 1.
+      // A data: URL with a download attribute avoids the blob: resource entirely.
+      const a=document.createElement('a');
+      a.href='data:application/json;charset=utf-8,'+encodeURIComponent(json);
+      a.download='public-settings.json';
+      document.body.appendChild(a);a.click();a.remove();
+      showFallback(json);
+      status.textContent='Download requested. If Safari does not save the file, use the JSON shown below.';
     }catch(e){status.textContent=e.message}
   };
+  section.querySelector('#publicCopy').onclick=()=>{
+    try{showFallback(exportText());section.querySelector('#publicJsonText').select()}
+    catch(e){status.textContent=e.message}
+  };
+  section.querySelector('#publicSelectAll').onclick=()=>section.querySelector('#publicJsonText').select();
   hs2SettingsLoad.then(()=>{populate();status.textContent='Repository defaults loaded. Move the map, capture the view, then export.'});
 }
 
