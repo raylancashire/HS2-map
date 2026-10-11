@@ -38,6 +38,7 @@ const markerLayer=L.layerGroup().addTo(map);
 // can be selected independently without affecting HS2 or property layers.
 const WARD_ENDPOINT='https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Wards_December_2024_Boundaries_UK_BGC/FeatureServer/0/query';
 const wardBoundaryLayer=L.geoJSON(null,{
+  interactive:false,
   style:{color:'#D00000',weight:3,opacity:1,fillOpacity:0},
   onEachFeature:(feature,layer)=>layer.bindPopup('<strong>Queen’s Park Ward</strong><br>City of Westminster<br>ONS December 2024 electoral ward boundary')
 }).addTo(map);
@@ -103,6 +104,7 @@ loadWardBoundary();
     if(active.has(name)){map.fitBounds(active.get(name).layer.getBounds().pad(.1));return;}
     const color=colors[active.size%colors.length];
     const layer=L.geoJSON({type:'FeatureCollection',features:featuresByName.get(name)}, {
+      interactive:false,
       style:{color,weight:2.5,opacity:1,fillOpacity:0},
       onEachFeature:(feature,shape)=>shape.bindPopup('<strong>'+name.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</strong><br>Westminster ward<br>ONS December 2024')
     }).addTo(map);
@@ -512,6 +514,7 @@ async function loadSafeguarding2019(){
   const results=await Promise.all(safeguarding2019.map(async item=>{
     const checkbox=document.getElementById(item.id);
     const layer=L.geoJSON(null,{
+      interactive:false,
       style:{color:item.color,weight:item.weight,opacity:0.9,fillColor:item.color,fillOpacity:item.fillOpacity},
       onEachFeature:(feature,shape)=>shape.bindPopup('<strong>HS2 '+item.name+' safeguarding</strong><br>HS2 Ltd, June 2019<br>Historical GIS boundary; check against current safeguarding plans.')
     });
@@ -529,6 +532,37 @@ async function loadSafeguarding2019(){
   status.textContent='HS2 Ltd June 2019 · '+results.join(' · ')+'. Not a current legal safeguarding determination.';
 }
 loadSafeguarding2019();
+
+// Independent published 2013 route centreline reference. Does not affect editable
+// routes, tunnel buffers or property-distance calculations.
+(function addHistoricalCentreline2013(){
+  const tunnelCheckbox=document.getElementById('showTunnel');
+  if(!tunnelCheckbox)return;
+  const label=document.createElement('label');
+  label.className='check';
+  const checkbox=document.createElement('input');
+  checkbox.type='checkbox';checkbox.id='showPublishedCentreline2013';
+  label.append(checkbox,document.createTextNode(' Published HS2 route centreline (2013)'));
+  const note=document.createElement('p');
+  note.className='hint';note.id='publishedCentreline2013Status';
+  note.textContent='Historical November 2013 design; not the verified alignment of both tunnel bores.';
+  const existing=tunnelCheckbox.closest('label');
+  if(existing){existing.insertAdjacentElement('afterend',note);existing.insertAdjacentElement('afterend',label);}
+  else tunnelCheckbox.insertAdjacentElement('afterend',label);
+  const group=L.layerGroup();
+  checkbox.addEventListener('change',()=>checkbox.checked?group.addTo(map):map.removeLayer(group));
+  fetch('hs2_queens_park_tunnel_centreline_2013.geojson',{cache:'no-cache'})
+    .then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()})
+    .then(data=>{
+      if(data.type!=='FeatureCollection'||!Array.isArray(data.features))throw Error('Invalid GeoJSON');
+      for(const f of data.features){
+        const line=String(f.properties?.LINE||'');
+        const isLink=/HS1/i.test(line);
+        L.geoJSON(f,{interactive:false,style:{color:isLink?'#c14788':'#087eac',weight:3,opacity:0.95,dashArray:'8 6'}}).addTo(group);
+      }
+      note.textContent=data.features.length+' historical centreline feature(s) loaded: blue = HS2 DOWN MAIN; pink = HS1 LINK (not the second HS2 bore). Reference only; property distances use the editable route.';
+    }).catch(e=>{checkbox.disabled=true;note.textContent='Published 2013 centreline unavailable: '+e.message;});
+})();
 
 document.querySelector('#showCorridor').addEventListener('change',e=>e.target.checked?corridorLayer.addTo(map):map.removeLayer(corridorLayer));
 document.querySelector('#showTunnel').addEventListener('change',e=>e.target.checked?tunnelLayer.addTo(map):map.removeLayer(tunnelLayer));document.querySelector('#showZone').addEventListener('change',e=>e.target.checked?zoneLayer.addTo(map):map.removeLayer(zoneLayer));document.querySelector('#showHouses').addEventListener('change',e=>e.target.checked?markerLayer.addTo(map):map.removeLayer(markerLayer));
