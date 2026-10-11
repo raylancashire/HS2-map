@@ -142,7 +142,10 @@ const MANUAL_KEY="hs2qp:manual-pinpoints:v1";
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function toXY(lat,lon,refLat){const R=6371000,rad=Math.PI/180;return {x:lon*rad*R*Math.cos(refLat*rad),y:lat*rad*R}}
 function pointSegDist(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,den=dx*dx+dy*dy;let t=den?((p.x-a.x)*dx+(p.y-a.y)*dy)/den:0;t=Math.max(0,Math.min(1,t));return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy))}
-function tunnelDistance(lat,lon){if(!routeLines.length)return NaN;const ref=lat,p=toXY(lat,lon,ref);let d=Infinity;routeLines.forEach(line=>{for(let i=0;i<line.length-1;i++){const a=line[i],b=line[i+1];d=Math.min(d,pointSegDist(p,toXY(a[0],a[1],ref),toXY(b[0],b[1],ref)))}});return d}
+let published2013MainLines=[];
+let published2013AllLines=[];
+let distanceRouteSource='editable';
+function tunnelDistance(lat,lon){const activeLines=distanceRouteSource==='published2013both'?published2013AllLines:distanceRouteSource==='published2013'?published2013MainLines:routeLines;if(!activeLines.length)return NaN;const ref=lat,p=toXY(lat,lon,ref);let d=Infinity;activeLines.forEach(line=>{for(let i=0;i<line.length-1;i++){const a=line[i],b=line[i+1];d=Math.min(d,pointSegDist(p,toXY(a[0],a[1],ref),toXY(b[0],b[1],ref)))}});return d}
 function classify(d){return !Number.isFinite(d)?'unknown':d<=15?'d0':d<=30?'d15':d<=60?'d30':d<=100?'d60':'d100'}
 // A blank damage field is not evidence that a property is unaffected.
 function isUnaffected(p){
@@ -549,6 +552,30 @@ loadSafeguarding2019();
   const existing=tunnelCheckbox.closest('label');
   if(existing){existing.insertAdjacentElement('afterend',note);existing.insertAdjacentElement('afterend',label);}
   else tunnelCheckbox.insertAdjacentElement('afterend',label);
+  const sourceLabel=document.createElement('label');
+  sourceLabel.className='check';
+  sourceLabel.textContent=' Property distance source: ';
+  const sourceSelect=document.createElement('select');
+  sourceSelect.id='propertyDistanceSource';
+  sourceSelect.setAttribute('aria-label','Property distance calculation source');
+  const editableOption=document.createElement('option');
+  editableOption.value='editable';editableOption.textContent='Editable tunnel route';
+  const publishedOption=document.createElement('option');
+  publishedOption.value='published2013';publishedOption.textContent='Published HS2 DOWN MAIN (2013)';
+  publishedOption.disabled=true;
+  const bothOption=document.createElement('option');
+  bothOption.value='published2013both';bothOption.textContent='Nearest of both published 2013 alignments';
+  bothOption.disabled=true;
+  sourceSelect.append(editableOption,publishedOption,bothOption);
+  sourceLabel.append(sourceSelect);
+  label.insertAdjacentElement('afterend',sourceLabel);
+  const sourceNote=document.createElement('p');sourceNote.className='hint';
+  sourceNote.textContent='Distance is the shortest horizontal distance to the selected line(s). Both published lines include the historical HS1 LINK, which is not a verified second HS2 bore; this is not a property eligibility test.';
+  sourceLabel.insertAdjacentElement('afterend',sourceNote);
+  sourceSelect.addEventListener('change',()=>{
+    distanceRouteSource=sourceSelect.value;
+    render();
+  });
   const group=L.layerGroup();
   checkbox.addEventListener('change',()=>checkbox.checked?group.addTo(map):map.removeLayer(group));
   fetch('hs2_queens_park_tunnel_centreline_2013.geojson',{cache:'no-cache'})
@@ -558,9 +585,21 @@ loadSafeguarding2019();
       for(const f of data.features){
         const line=String(f.properties?.LINE||'');
         const isLink=/HS1/i.test(line);
+        if(f.geometry?.type==='LineString' && (/HS2 DOWN MAIN/i.test(line)||isLink)){
+          const coordinates=f.geometry.coordinates.map(c=>[c[1],c[0]]);
+          published2013AllLines.push(coordinates);
+          if(!isLink)published2013MainLines.push(coordinates);
+        }
         L.geoJSON(f,{interactive:false,style:{color:isLink?'#c14788':'#087eac',weight:3,opacity:0.95,dashArray:'8 6'}}).addTo(group);
       }
-      note.textContent=data.features.length+' historical centreline feature(s) loaded: blue = HS2 DOWN MAIN; pink = HS1 LINK (not the second HS2 bore). Reference only; property distances use the editable route.';
+      publishedOption.disabled=!published2013MainLines.length;
+      bothOption.disabled=published2013AllLines.length<2;
+      if(!bothOption.disabled){
+        sourceSelect.value='published2013both';
+        distanceRouteSource='published2013both';
+        render();
+      }
+      note.textContent=data.features.length+' historical centreline feature(s) loaded: blue = HS2 DOWN MAIN; pink = HS1 LINK. Property colours use the nearest of the two historical lines by default; change the distance source above if needed.';
     }).catch(e=>{checkbox.disabled=true;note.textContent='Published 2013 centreline unavailable: '+e.message;});
 })();
 
