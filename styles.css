@@ -87,8 +87,6 @@ main>#map{height:100%;min-height:0;min-width:0;overflow:hidden;}
 #compareRoutes select{width:100%;max-width:100%}
 #compareRoutes .check{display:flex;align-items:center;gap:8px}
 
-/* Boundary editor: maintenance view only. */
-.webador-public #wardEditor{display:none!important}
-.ward-editor button{margin:4px 4px 4px 0}
-.ward-edit-handle{background:#fff;border:3px solid #763aa5;border-radius:50%;box-shadow:0 1px 5px #2228}
-.ward-edit-handle.selected{background:#f6c850;border-color:#5c267f}
+/* Public Webador view: keep tunnel layers visible, hide route-version and twin-tunnel controls. */
+.webador-public #routeVersions,
+.webador-public #compareRoutes{display:none!important}
