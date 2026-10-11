@@ -1,4 +1,4 @@
-/* Optional second alignment: overlay only; selected alignment remains the distance reference. */
+/* Second alignment overlay and property-distance recalculation. */
 (()=>{
  'use strict';
  const primary=document.getElementById('routeVersionSelect');
@@ -9,6 +9,7 @@
  const overlay=L.layerGroup().addTo(map);
  const safe=f=>typeof f==='string'&&/^[a-z0-9][a-z0-9_.-]*\.geojson$/i.test(f)&&!f.includes('..');
  let request=0;
+ function setComparison(lines){document.dispatchEvent(new CustomEvent('hs2-comparison-route-changed',{detail:{lines}}));}
  async function options(){
   try{
    const r=await fetch('routes.json',{cache:'no-store'});
@@ -28,7 +29,7 @@
   draw();
  }
  async function draw(){
-  const token=++request;overlay.clearLayers();
+  const token=++request;overlay.clearLayers();setComparison([]);
   if(!enabled.checked){status.textContent='Second alignment hidden.';return;}
   const file=secondary.value;
   if(!file){status.textContent='No second published route available.';return;}
@@ -45,7 +46,14 @@
     }
     L.geoJSON(line,{style:{color:'#087d9d',weight:4,opacity:.95,dashArray:'5 6'},interactive:false}).addTo(overlay);
    }
-   status.textContent='Blue dashed line: '+secondary.selectedOptions[0].text+'. Property distances still use the displayed alignment above.';
+   const coords=[];
+   for(const feature of lines){
+    const g=feature.geometry;
+    const segments=g.type==='MultiLineString'?g.coordinates:[g.coordinates];
+    for(const segment of segments){if(segment.length>1)coords.push(segment.map(c=>[c[1],c[0]]));}
+   }
+   setComparison(coords);
+   status.textContent='Blue dashed line: '+secondary.selectedOptions[0].text+'. Property colours now reflect distance to the nearer displayed tunnel.';
   }catch(e){if(token===request)status.textContent='Second route could not be displayed: '+e.message;}
  }
  enabled.addEventListener('change',draw);

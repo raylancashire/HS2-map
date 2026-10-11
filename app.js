@@ -24,6 +24,7 @@ osmTiles.on('load',()=>{
 
 const cfg=window.HS2_MAP_CONFIG||{};
 let routeFeature=null, routeLines=[];
+let comparisonRouteLines=[]; // Secondary alignment supplied by twin-route-overlay.js
 let tunnelLayer=L.layerGroup().addTo(map);
 let zoneLayer=L.layerGroup();
 let corridorLayer=L.layerGroup().addTo(map);
@@ -72,7 +73,23 @@ const MANUAL_KEY="hs2qp:manual-pinpoints:v1";
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function toXY(lat,lon,refLat){const R=6371000,rad=Math.PI/180;return {x:lon*rad*R*Math.cos(refLat*rad),y:lat*rad*R}}
 function pointSegDist(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,den=dx*dx+dy*dy;let t=den?((p.x-a.x)*dx+(p.y-a.y)*dy)/den:0;t=Math.max(0,Math.min(1,t));return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy))}
-function tunnelDistance(lat,lon){if(!routeLines.length)return NaN;const ref=lat,p=toXY(lat,lon,ref);let d=Infinity;routeLines.forEach(line=>{for(let i=0;i<line.length-1;i++){const a=line[i],b=line[i+1];d=Math.min(d,pointSegDist(p,toXY(a[0],a[1],ref),toXY(b[0],b[1],ref)))}});return d}
+function distanceToLines(lat,lon,lines){
+ if(!lines.length)return NaN;
+ const ref=lat,p=toXY(lat,lon,ref);let d=Infinity;
+ lines.forEach(line=>{for(let i=0;i<line.length-1;i++){
+  const a=line[i],b=line[i+1];d=Math.min(d,pointSegDist(p,toXY(a[0],a[1],ref),toXY(b[0],b[1],ref)));
+ }});
+ return d;
+}
+function tunnelDistance(lat,lon){
+ const primary=distanceToLines(lat,lon,routeLines),secondary=distanceToLines(lat,lon,comparisonRouteLines);
+ return Number.isFinite(secondary)?(Number.isFinite(primary)?Math.min(primary,secondary):secondary):primary;
+}
+// Recalculate property colours, filters, tooltips and details when the second line changes.
+document.addEventListener('hs2-comparison-route-changed',event=>{
+ comparisonRouteLines=Array.isArray(event.detail?.lines)?event.detail.lines:[];
+ render();
+});
 function classify(d){return !Number.isFinite(d)?'unknown':d<=15?'d0':d<=30?'d15':d<=60?'d30':d<=100?'d60':'d100'}
 // A blank damage field is not evidence that a property is unaffected.
 function isUnaffected(p){
@@ -249,9 +266,12 @@ function bindPhotoButtons(scope){
 }
 function propertyCard(p){
  const distance=Number.isFinite(p.distance)?Math.round(p.distance)+' metres (estimated)':'Not available';
+ const primaryDistance=isLocalCoordinate(p.latitude,p.longitude)?distanceToLines(+p.latitude,+p.longitude,routeLines):NaN;
+ const secondaryDistance=isLocalCoordinate(p.latitude,p.longitude)?distanceToLines(+p.latitude,+p.longitude,comparisonRouteLines):NaN;
+ const bothDistances=Number.isFinite(secondaryDistance)?`<p><strong>Primary tunnel:</strong> ${Number.isFinite(primaryDistance)?Math.round(primaryDistance)+' m':'Unavailable'} · <strong>Second tunnel:</strong> ${Math.round(secondaryDistance)} m</p>`:'';
  const photos=photoEntries(p);
  const gallery=photos.length?`<div class="property-gallery">${photos.map((photo,i)=>`<a href="${esc(photo.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open property photo ${i+1}: ${esc(photo.caption)}"><img src="${esc(photo.url)}" alt="${esc(photo.caption)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"><small>${esc(photo.caption)}</small></a>`).join('')}</div>`:'<p class="hint">No indexed photographs for this property yet.</p>';
- return `<div class="property-card"><h3>${esc(p.address)}</h3><p><strong>Location:</strong> ${esc(p.address)}${p.postcode?', '+esc(p.postcode):''}</p><p><strong>Property ID:</strong> ${esc(p.id)}</p><p><strong>Distance from tunnel:</strong> ${distance}</p><p><strong>Coordinates:</strong> ${Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)?Number(p.latitude).toFixed(6)+', '+Number(p.longitude).toFixed(6):'Unavailable'}</p>${p.notes?`<p>${esc(p.notes)}</p>`:''}<h4>Damage recorded</h4><p class="damage-description">${p.damage?esc(p.damage).replace(/^(no damage|none|nil|no damage recorded|no visible damage|unaffected)$/i,'Non-affected').replace(/\r?\n/g,'<br>'):'Non-affected'}</p><h4>Associated photographs</h4><div class="hs2-live-previews" data-address="${esc(p.address)}" aria-label="Webador photograph previews"><span class="hint">Loading Webador photographs…</span></div><button type="button" class="hs2-webador-gallery" data-address="${esc(p.address)}">View property photographs</button><p class="hint">Opens the Webador album viewer when displayed on the QPT website.</p>${gallery}${photoAlbumLink()}<button type="button" class="edit-location" data-property-id="${esc(p.id)}" data-property-address="${esc(p.address)}">Edit location on map</button><p class="hint">Tunnel geometry is provisional. Distance is horizontal and does not establish eligibility or safeguarding status.</p></div>`;
+ return `<div class="property-card"><h3>${esc(p.address)}</h3><p><strong>Location:</strong> ${esc(p.address)}${p.postcode?', '+esc(p.postcode):''}</p><p><strong>Property ID:</strong> ${esc(p.id)}</p><p><strong>Distance to nearest displayed tunnel:</strong> ${distance}</p>${bothDistances}<p><strong>Coordinates:</strong> ${Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)?Number(p.latitude).toFixed(6)+', '+Number(p.longitude).toFixed(6):'Unavailable'}</p>${p.notes?`<p>${esc(p.notes)}</p>`:''}<h4>Damage recorded</h4><p class="damage-description">${p.damage?esc(p.damage).replace(/^(no damage|none|nil|no damage recorded|no visible damage|unaffected)$/i,'Non-affected').replace(/\r?\n/g,'<br>'):'Non-affected'}</p><h4>Associated photographs</h4><div class="hs2-live-previews" data-address="${esc(p.address)}" aria-label="Webador photograph previews"><span class="hint">Loading Webador photographs…</span></div><button type="button" class="hs2-webador-gallery" data-address="${esc(p.address)}">View property photographs</button><p class="hint">Opens the Webador album viewer when displayed on the QPT website.</p>${gallery}${photoAlbumLink()}<button type="button" class="edit-location" data-property-id="${esc(p.id)}" data-property-address="${esc(p.address)}">Edit location on map</button><p class="hint">Tunnel geometry is provisional. Distance is horizontal and does not establish eligibility or safeguarding status.</p></div>`;
 }
 function showDetails(p){document.querySelector('#details').innerHTML='<h2>Selected property</h2>'+propertyCard(p);bindEditLocation(document.querySelector('#details'));bindPhotoButtons(document.querySelector('#details'))}
 function focusProperty(p,zoom=19){
