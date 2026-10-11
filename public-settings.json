@@ -8,12 +8,12 @@
   "distanceSource": "published2013both",
   "layers": {
     "properties": true,
-    "editableTunnel": true,
-    "buffer": true,
+    "editableTunnel": false,
+    "buffer": false,
     "zone": false,
     "published2013": true,
     "queenWard": true,
-    "safeguardingSubsurface": false,
+    "safeguardingSubsurface": true,
     "safeguardingSurface": false,
     "safeguardingLimits": false
   }
