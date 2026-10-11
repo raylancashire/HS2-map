@@ -607,6 +607,21 @@ function localPropertyMatches(p,pins){
    return !savedId && norm(key)===norm(pinKey(p)) && !!address;
  });
 }
+// Compatibility with older index.html versions: restore the missing removal control.
+// Do this before binding its click handler, otherwise a missing element aborts
+// all subsequent pinpoint-editor event registration.
+(function ensureRemoveLocalButton(){
+ const editor=document.getElementById('pinEditor');
+ if(!editor||document.getElementById('removeLocalProperty'))return;
+ const button=document.createElement('button');
+ button.id='removeLocalProperty';
+ button.type='button';
+ button.textContent='Remove locally saved property';
+ button.disabled=true;
+ const anchor=document.getElementById('cancelPin');
+ if(anchor)anchor.insertAdjacentElement('afterend',button);
+ else editor.appendChild(button);
+})();
 function updateRemoveLocalButton(){
  const button=document.querySelector('#removeLocalProperty');
  if(!button)return;
@@ -616,7 +631,7 @@ function updateRemoveLocalButton(){
  button.disabled=!p;
  button.title=p?'Check for and remove this property’s locally saved record. Google Sheets is unchanged.':'Select a property first.';
 }
-document.querySelector('#removeLocalProperty').addEventListener('click',async()=>{
+document.querySelector('#removeLocalProperty')?.addEventListener('click',async()=>{
  const sel=document.querySelector('#pinProperty');
  const p=selectedLocalProperty();
  if(!p){pinMsg('Select a property from the dropdown first.');return;}
