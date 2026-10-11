@@ -90,3 +90,6 @@ main>#map{height:100%;min-height:0;min-width:0;overflow:hidden;}
 /* Public Webador view: keep tunnel layers visible, hide route-version and twin-tunnel controls. */
 .webador-public #routeVersions,
 .webador-public #compareRoutes{display:none!important}
+.webador-public #compareRoutes {
+  display: none !important;
+}
