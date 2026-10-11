@@ -1,3 +1,23 @@
+// Public Webador presentation mode: hide editing UI without removing map functionality.
+// This is a presentation setting, not authentication or write-access security.
+const HS2_PUBLIC_DISPLAY = new URLSearchParams(window.location.search).get('display') === '1';
+if (HS2_PUBLIC_DISPLAY) {
+  document.documentElement.classList.add('webador-public');
+  const publicStyle = document.createElement('style');
+  publicStyle.id = 'hs2-public-display-style';
+  publicStyle.textContent = `
+    .webador-public #pinEditor,
+    .webador-public #tunnelEditor,
+    .webador-public .edit-location,
+    .webador-public #csvImportControl,
+    .webador-public #csvImportHelp,
+    .webador-public #photoImportSection,
+    .webador-public #reloadRouteGeojson,
+    .webador-public #traceFallback { display: none !important; }
+  `;
+  document.head.appendChild(publicStyle);
+}
+
 const map=L.map('map',{zoomControl:true}).setView([51.5340,-0.2050],15);
 
 // OpenStreetMap standard raster tiles. OSMF now specifies this exact host
@@ -439,6 +459,7 @@ async function loadRoute(){
 }
 // Multiple named local tunnel alignments; the repository route is always available.
 (function installTunnelEditor(){
+ if(HS2_PUBLIC_DISPLAY)return;
  const target=document.querySelector('#routeStatus');if(!target)return;
  const panel=document.createElement('div');panel.id='tunnelEditor';panel.style.cssText='margin:12px 0;padding:12px;border:1px solid #c8d2e0;border-radius:8px';
  panel.innerHTML=`<strong>Saved tunnel routes</strong><p class="hint">Named routes are saved in this browser. Select a route to display its centreline and recalculate property distances. Export GeoJSON for backup.</p>
@@ -728,6 +749,7 @@ function stopPin(){
  document.querySelector('#savePin').disabled=true;document.querySelector('#cancelPin').disabled=true;
 }
 function selectPropertyForEditing(index){
+ if(HS2_PUBLIC_DISPLAY)return;
  const p=properties[index];if(!p)return;
  stopPin();document.querySelector('#pinProperty').value=String(index);updateRemoveLocalButton();
  document.querySelector('#pinAddress').value=p.address;
@@ -738,6 +760,7 @@ function selectPropertyForEditing(index){
  document.querySelector('#pinEditor').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function bindEditLocation(container){
+ if(HS2_PUBLIC_DISPLAY)return;
  container.querySelectorAll('.edit-location').forEach(b=>b.addEventListener('click',()=>{
   const i=properties.findIndex(p=>String(p.id)===b.dataset.propertyId&&p.address===b.dataset.propertyAddress);
   if(i>=0)selectPropertyForEditing(i);
