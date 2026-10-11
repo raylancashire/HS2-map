@@ -33,37 +33,101 @@ let tunnelLayer=L.layerGroup().addTo(map);
 let zoneLayer=L.layerGroup();
 let corridorLayer=L.layerGroup().addTo(map);
 const markerLayer=L.layerGroup().addTo(map);
-// ONS December 2024 generalised electoral ward boundary.
+// ONS December 2024 generalised electoral ward boundaries.
+// Queen's Park remains a dedicated red outline; additional Westminster wards
+// can be selected independently without affecting HS2 or property layers.
+const WARD_ENDPOINT='https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Wards_December_2024_Boundaries_UK_BGC/FeatureServer/0/query';
 const wardBoundaryLayer=L.geoJSON(null,{
-  style:{color:'#763aa5',weight:3,opacity:1,fillColor:'#aa82c9',fillOpacity:.05},
+  style:{color:'#D00000',weight:3,opacity:1,fillOpacity:0},
   onEachFeature:(feature,layer)=>layer.bindPopup('<strong>Queen’s Park Ward</strong><br>City of Westminster<br>ONS December 2024 electoral ward boundary')
 }).addTo(map);
+function wardName(feature){const p=feature.properties||{};return String(p.WD24NM||p.WD24NM_EN||p.name||'').trim();}
+function isWestminster(feature){const p=feature.properties||{};const district=String(p.LAD24NM||p.LAD24NM_EN||p.lad_name||'');return !district||district.toLowerCase().includes('westminster');}
+async function queryWards(where){
+  const params=new URLSearchParams({where,outFields:'WD24NM,LAD24NM',returnGeometry:'true',outSR:'4326',f:'geojson'});
+  const response=await fetch(WARD_ENDPOINT+'?'+params.toString());
+  if(!response.ok)throw Error('ONS service HTTP '+response.status);
+  const data=await response.json();
+  if(data.error)throw Error(data.error.message||'ONS service error');
+  if(!Array.isArray(data.features))throw Error('Invalid ward GeoJSON');
+  return data.features;
+}
 async function loadWardBoundary(){
   const status=document.querySelector('#wardStatus');
-  const endpoint='https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Wards_December_2024_Boundaries_UK_BGC/FeatureServer/0/query';
-  const params=new URLSearchParams({where:"WD24NM LIKE 'Queen%Park'",outFields:'*',returnGeometry:'true',outSR:'4326',f:'geojson'});
-  // Prefer a repository-hosted copy, if provided later, then the official ONS service.
-  for(const url of ['queens-park-ward.geojson',endpoint+'?'+params.toString()]){
+  for(const source of ['queens-park-ward.geojson',null]){
     try{
-      const response=await fetch(url);if(!response.ok)throw Error('HTTP '+response.status);
-      const data=await response.json();
-      const features=(data.features||[]).filter(f=>{
-        const a=f.properties||{};
-        const name=String(a.WD24NM||a.WD24NM_EN||a.name||'').toLowerCase().replace(/[’]/g,"'");
-        const district=String(a.LAD24NM||a.LAD24NM_EN||a.lad_name||'').toLowerCase();
-        return name.replace(/[’‘]/g,"'")==="queen's park" && (!district||district.includes('westminster'));
-      });
-      if(!features.length)throw Error('Queen’s Park, Westminster not found in dataset');
+      let features;
+      if(source){const response=await fetch(source);if(!response.ok)throw Error('HTTP '+response.status);features=(await response.json()).features||[];}
+      else features=await queryWards("WD24NM LIKE 'Queen%Park'");
+      features=features.filter(f=>wardName(f).toLowerCase().replace(/[’‘]/g,"'")==="queen's park"&&isWestminster(f));
+      if(!features.length)throw Error('Queen’s Park, Westminster not found');
       wardBoundaryLayer.clearLayers();wardBoundaryLayer.addData({type:'FeatureCollection',features});
-      status.textContent='ONS December 2024 ward boundary loaded';
+      if(status)status.textContent='ONS December 2024 Queen’s Park boundary loaded';
       return;
-    }catch(err){status.textContent='Ward boundary: '+err.message;}
+    }catch(err){if(status)status.textContent='Ward boundary: '+err.message;}
   }
-  status.textContent='Ward boundary unavailable. Check connection or add queens-park-ward.geojson to the repository.';
+  if(status)status.textContent='Queen’s Park boundary unavailable. Check the ONS service or repository GeoJSON.';
 }
-document.querySelector('#showWardBoundary').addEventListener('change',e=>e.target.checked?wardBoundaryLayer.addTo(map):map.removeLayer(wardBoundaryLayer));
-document.querySelector('#zoomWard').addEventListener('click',()=>{const b=wardBoundaryLayer.getBounds();if(b.isValid())map.fitBounds(b.pad(.08));});
+const showQueenWard=document.querySelector('#showWardBoundary');
+if(showQueenWard)showQueenWard.addEventListener('change',e=>e.target.checked?wardBoundaryLayer.addTo(map):map.removeLayer(wardBoundaryLayer));
+const zoomQueenWard=document.querySelector('#zoomWard');
+if(zoomQueenWard)zoomQueenWard.addEventListener('click',()=>{const b=wardBoundaryLayer.getBounds();if(b.isValid())map.fitBounds(b.pad(.08));});
 loadWardBoundary();
+
+// Additional ward selector is inserted beside the existing ward controls.
+(function initialiseAdditionalWards(){
+  const anchor=document.querySelector('#wardStatus')||document.querySelector('#zoomWard');
+  if(!anchor)return;
+  const wrapper=document.createElement('div');
+  wrapper.id='additionalWardSelector';
+  wrapper.style.cssText='margin:12px 0;padding:10px;border:1px solid #d9dfe5;border-radius:7px';
+  const heading=document.createElement('strong');heading.textContent='Other Westminster ward boundaries';
+  const hint=document.createElement('p');hint.className='hint';hint.textContent='Select wards to add coloured outlines to the map. Queen’s Park remains red.';
+  const controls=document.createElement('div');controls.style.cssText='display:flex;gap:6px;flex-wrap:wrap;align-items:center';
+  const selector=document.createElement('select');selector.id='additionalWardSelect';selector.setAttribute('aria-label','Select another Westminster ward');selector.style.cssText='min-width:170px;max-width:100%;flex:1';
+  const add=document.createElement('button');add.type='button';add.textContent='Add ward';
+  const clear=document.createElement('button');clear.type='button';clear.textContent='Remove all';
+  const list=document.createElement('div');list.id='selectedWardList';list.style.cssText='margin-top:8px';
+  const status=document.createElement('p');status.className='hint';status.setAttribute('role','status');
+  controls.append(selector,add,clear);wrapper.append(heading,hint,controls,list,status);
+  anchor.insertAdjacentElement('afterend',wrapper);
+  const colors=['#007F86','#E38B20','#2457A7','#7C4DA5','#198048','#B35C38'];
+  const active=new Map();let featuresByName=new Map();
+  function option(text,value){const o=document.createElement('option');o.textContent=text;o.value=value;return o;}
+  function populate(){selector.replaceChildren(option('Select a ward…',''));
+    for(const name of [...featuresByName.keys()].sort((a,b)=>a.localeCompare(b)))if(name.toLowerCase().replace(/[’‘]/g,"'")!=="queen's park")selector.append(option(name,name));
+  }
+  function removeWard(name){const item=active.get(name);if(!item)return;map.removeLayer(item.layer);item.row.remove();active.delete(name);status.textContent=name+' removed.';}
+  function addWard(name){
+    if(!name||!featuresByName.has(name))return;
+    if(active.has(name)){map.fitBounds(active.get(name).layer.getBounds().pad(.1));return;}
+    const color=colors[active.size%colors.length];
+    const layer=L.geoJSON({type:'FeatureCollection',features:featuresByName.get(name)}, {
+      style:{color,weight:2.5,opacity:1,fillOpacity:0},
+      onEachFeature:(feature,shape)=>shape.bindPopup('<strong>'+name.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</strong><br>Westminster ward<br>ONS December 2024')
+    }).addTo(map);
+    const row=document.createElement('div');row.style.cssText='display:flex;gap:7px;align-items:center;margin:5px 0';
+    const swatch=document.createElement('span');swatch.style.cssText='display:inline-block;width:19px;border-top:3px solid '+color;
+    const label=document.createElement('span');label.textContent=name;label.style.flex='1';
+    const zoom=document.createElement('button');zoom.type='button';zoom.textContent='Zoom';zoom.addEventListener('click',()=>map.fitBounds(layer.getBounds().pad(.1)));
+    const remove=document.createElement('button');remove.type='button';remove.textContent='Remove';remove.addEventListener('click',()=>removeWard(name));
+    row.append(swatch,label,zoom,remove);list.append(row);active.set(name,{layer,row});status.textContent=name+' added.';
+  }
+  add.addEventListener('click',()=>addWard(selector.value));
+  clear.addEventListener('click',()=>{for(const name of [...active.keys()])removeWard(name);});
+  selector.replaceChildren(option('Loading Westminster wards…',''));
+  (async()=>{
+    try{
+      const features=(await queryWards("LAD24NM = 'Westminster'")).filter(f=>wardName(f)&&isWestminster(f));
+      if(!features.length)throw Error('No Westminster ward features returned');
+      for(const feature of features){const name=wardName(feature);if(!featuresByName.has(name))featuresByName.set(name,[]);featuresByName.get(name).push(feature);}
+      populate();status.textContent=(featuresByName.size-1)+' other Westminster wards available.';
+    }catch(err){
+      selector.replaceChildren(option('Ward list unavailable',''));
+      status.textContent='Could not load other wards: '+err.message+'. Check the ONS ArcGIS service.';
+    }
+  })();
+})();
 
 let properties=[];
 let photoIndex=[];
