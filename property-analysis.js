@@ -15,12 +15,21 @@
  const median=a=>{if(!a.length)return null;const b=[...a].sort((x,y)=>x-y);const k=Math.floor(b.length/2);return b.length%2?b[k]:(b[k-1]+b[k])/2};
  const bands=[['0–15 m',p=>hasDistance(p)&&p.distance<=15,'#c62828'],['15–30 m',p=>hasDistance(p)&&p.distance>15&&p.distance<=30,'#f28c28'],['30–60 m',p=>hasDistance(p)&&p.distance>30&&p.distance<=60,'#e6bc30'],['60–100 m',p=>hasDistance(p)&&p.distance>60&&p.distance<=100,'#339966'],['Over 100 m',p=>hasDistance(p)&&p.distance>100,'#2878b8'],['Unknown',p=>!hasDistance(p),'#888888']];
  function bars(id,rows){const max=Math.max(1,...rows.map(x=>x[1]));$(id).innerHTML=rows.map(([label,n,color])=>`<div class="analysis-bar-row"><span>${escape(label)}</span><div class="analysis-track"><div class="analysis-fill" style="width:${100*n/max}%;background:${color||'#2c709c'}"></div></div><strong>${n}</strong></div>`).join('')}
+ function renderVisibleDistance(){
+  const api=window.HS2PropertyAnalysis;if(!api)return;
+  const ps=typeof api.getVisibleProperties==='function'?api.getVisibleProperties():api.getProperties();
+  bars('analysisDistance',bands.map(([name,fn,color])=>[name,ps.filter(fn).length,color]));
+  const container=$('analysisDistance');
+  let count=document.getElementById('analysisVisibleCount');
+  if(!count){count=document.createElement('p');count.id='analysisVisibleCount';count.className='analysis-visible-count';container.parentElement.insertBefore(count,container);}
+  count.textContent=`Showing ${ps.length} of ${api.getProperties().length} properties in the current map view`;
+ }
  function render(){
   const api=window.HS2PropertyAnalysis;if(!api)return;
   const ps=api.getProperties();const known=ps.filter(hasDistance);const observed=ps.filter(p=>damageCategory(p)==='Observation recorded');
   const stats=[['Properties recorded',ps.length],['Located / measured',known.length],['Observations recorded',observed.length],['Streets',new Set(ps.map(street)).size]];
   $('analysisStats').innerHTML=stats.map(([label,n])=>`<div class="analysis-stat"><strong>${n}</strong><span>${escape(label)}</span></div>`).join('');
-  bars('analysisDistance',bands.map(([name,fn,color])=>[name,ps.filter(fn).length,color]));
+  renderVisibleDistance();
   bars('analysisDamage',['Observation recorded','No damage reported','Not recorded'].map(k=>[k,ps.filter(p=>damageCategory(p)===k).length]));
   const groups=new Map();ps.forEach(p=>{const name=street(p);if(!groups.has(name))groups.set(name,[]);groups.get(name).push(p)});
   const ordered=[...groups].sort((a,b)=>a[0].localeCompare(b[0],'en-GB',{numeric:true}));
@@ -40,5 +49,6 @@
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='hs2-property-analysis.csv';document.body.append(a);a.click();a.remove();
  });
  document.addEventListener('hs2-properties-updated',()=>{if(panel.open)render()});
+ document.addEventListener('hs2-map-viewport-updated',()=>{if(panel.open)renderVisibleDistance()});
  panel.addEventListener('toggle',()=>{if(panel.open)render()});
 })();

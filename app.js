@@ -351,7 +351,9 @@ function isUnaffected(p){
  return /^(?:unaffected|non[ -]?affected|no damage(?: recorded)?|no visible damage|none|nil)[.!\s]*$/i.test(String(p.damage||'').trim());
 }
 function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}${!String(p.damage||'').trim()||/^(no damage|none|nil|no damage recorded|no visible damage|non-affected|non affected|unaffected)[.!\s]*$/i.test(String(p.damage).trim())?' no-damage':''}" aria-label="${esc(p.address)}"></span>`,iconSize:[12,12],iconAnchor:[6,6]})}
+let displayedMarkerProperties=[];
 function render(skipList=false){
+ displayedMarkerProperties=[];
  markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;
  let visible=0;
  properties.forEach(p=>{
@@ -369,6 +371,7 @@ function render(skipList=false){
   const streetKey=addressParts(p.address).street.toLocaleLowerCase('en-GB');
   if(expandedStreets.size&&!expandedStreets.has(streetKey))return;
   visible++;
+  displayedMarkerProperties.push(p);
   const m=L.marker([+p.latitude,+p.longitude],{icon:iconFor(p)}).addTo(markerLayer);
   m.bindTooltip(`${esc(p.address)} — ${Number.isFinite(p.distance)?Math.round(p.distance)+' m (estimated)':'distance unavailable'}`);
   m.on('click',()=>{if(!placingPin)showDetails(p)});
@@ -1043,4 +1046,7 @@ document.querySelector('#photoIndexFile').addEventListener('change',async e=>{
 loadPhotoIndex();
 
 // Read-only bridge for the optional analysis panel.
-window.HS2PropertyAnalysis={getProperties:()=>properties,focusProperty:(p)=>focusProperty(p)};
+window.HS2PropertyAnalysis={getProperties:()=>properties,focusProperty:(p)=>focusProperty(p),getVisibleProperties:()=>map.hasLayer(markerLayer)?displayedMarkerProperties.filter(p=>map.getBounds().contains([+p.latitude,+p.longitude])):[],focusProperty:(p)=>focusProperty(p)};
+map.on("moveend zoomend",()=>document.dispatchEvent(new Event("hs2-map-viewport-updated")));
+map.on("overlayadd overlayremove",()=>document.dispatchEvent(new Event("hs2-map-viewport-updated")));
+document.querySelector("#showHouses")?.addEventListener("change",()=>document.dispatchEvent(new Event("hs2-map-viewport-updated")));
