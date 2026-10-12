@@ -162,27 +162,6 @@ const osmTiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
   referrerPolicy:'strict-origin-when-cross-origin'
 }).addTo(map);
 
-// Background map choices. Only one base layer is active at a time.
-// All existing HS2 route, property and boundary overlays remain untouched.
-const aerialTiles=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
-  maxZoom:19,
-  attribution:'Tiles &copy; Esri and its imagery providers'
-});
-const lightTiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
-  subdomains:'abcd',maxZoom:20,
-  attribution:'&copy; OpenStreetMap contributors &copy; CARTO'
-});
-const darkTiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-  subdomains:'abcd',maxZoom:20,
-  attribution:'&copy; OpenStreetMap contributors &copy; CARTO'
-});
-L.control.layers({
-  'Street map (OpenStreetMap)':osmTiles,
-  'Aerial imagery (Esri)':aerialTiles,
-  'Light map (CARTO)':lightTiles,
-  'Dark map (CARTO)':darkTiles
-},null,{position:'topright',collapsed:true}).addTo(map);
-
 let tileErrors=0;
 osmTiles.on('tileerror',()=>{
   tileErrors++;
@@ -354,6 +333,7 @@ function render(skipList=false){
  document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Estimated tunnel distances: ${known} · Unavailable: ${properties.length-known}`;
  if(!skipList)renderPropertyList(q,filter);
  refreshPinOptions();
+ document.dispatchEvent(new Event("hs2-properties-updated"));
 }
 
 function refreshStreetMarkers(){render(true)}
@@ -1015,3 +995,6 @@ document.querySelector('#photoIndexFile').addEventListener('change',async e=>{
  catch(err){photoIndexStatus('Could not read photograph index: '+err.message)}
 });
 loadPhotoIndex();
+
+// Read-only bridge for the optional analysis panel.
+window.HS2PropertyAnalysis={getProperties:()=>properties,focusProperty:(p)=>focusProperty(p)};

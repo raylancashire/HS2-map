@@ -91,3 +91,29 @@ main>#map{height:100%;min-height:0;min-width:0;overflow:hidden;}
 .webador-public #wardEditor,
 .webador-public #routeEditor,
 .webador-public .route-admin { display:none!important; }
+
+/* Collapsible property analysis, beneath the map rather than inside its sidebar. */
+.property-analysis{background:#fff;border-top:2px solid #d9e0e8;flex:0 0 auto}
+.property-analysis>summary{cursor:pointer;padding:15px 22px;background:#eaf0f7;color:#12345b;font-size:17px;font-weight:750}
+.property-analysis>summary:hover{background:#dfeaf5}
+.analysis-toggle-hint{font-size:12px;font-weight:400;color:#516579;margin-left:10px}
+.analysis-content{padding:18px 22px 24px;max-width:1400px;margin:0 auto}
+.analysis-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.analysis-stat{background:#f3f6fa;border:1px solid #dbe3ec;border-radius:8px;padding:12px}
+.analysis-stat strong{display:block;font-size:24px;color:#12345b}
+.analysis-stat span{font-size:12px;color:#526477}
+.analysis-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.analysis-grid>section{border:1px solid #e1e7ed;border-radius:8px;padding:15px;min-width:0}
+.analysis-bar-row{display:grid;grid-template-columns:110px 1fr 40px;align-items:center;gap:10px;margin:10px 0;font-size:13px}
+.analysis-track{height:18px;background:#edf1f5;border-radius:4px;overflow:hidden}
+.analysis-fill{height:100%;min-width:0;background:#2c709c}
+.analysis-table-wrap{max-height:400px;overflow:auto;border:1px solid #e1e7ed;border-radius:8px}
+.analysis-table{width:100%;border-collapse:collapse;font-size:13px}
+.analysis-table th,.analysis-table td{text-align:left;padding:9px 11px;border-bottom:1px solid #e8edf1}
+.analysis-table th{position:sticky;top:0;background:#eef3f8;z-index:1}
+.analysis-table button{width:auto;margin:0;padding:5px 8px;font-size:12px}
+.analysis-street-details>summary{cursor:pointer;color:#12345b;font-weight:650}
+.analysis-street-details button{display:block;margin:5px 0 0}
+body:has(#propertyAnalysis[open]){overflow-y:auto;height:auto;min-height:100%}
+body:has(#propertyAnalysis[open]) main{height:75vh;min-height:500px;flex:0 0 auto}
+@media(max-width:760px){.analysis-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.analysis-grid{grid-template-columns:1fr}.analysis-bar-row{grid-template-columns:95px 1fr 30px}.analysis-content{padding:12px}body:has(#propertyAnalysis[open]) main{height:auto;min-height:0}}
