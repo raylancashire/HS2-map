@@ -153,6 +153,29 @@ function hs2BuildPublicSettingsPanel(){
 
 const map=L.map('map',{zoomControl:true}).setView([51.5340,-0.2050],15);
 
+// Home control: return to the map's original Queen's Park view.
+const HS2_HOME_CENTER=[51.5340,-0.2050];
+const HS2_HOME_ZOOM=15;
+const homeControl=L.control({position:'topleft'});
+homeControl.onAdd=function(){
+  const container=L.DomUtil.create('div','leaflet-bar leaflet-control');
+  const link=L.DomUtil.create('a','',container);
+  link.href='#';
+  link.title='Return to Queen’s Park';
+  link.setAttribute('aria-label','Return to Queen’s Park');
+  link.setAttribute('role','button');
+  link.textContent='⌂';
+  link.style.fontSize='23px';
+  link.style.fontWeight='bold';
+  link.style.lineHeight='30px';
+  L.DomEvent.disableClickPropagation(container);
+  L.DomEvent.on(link,'click',L.DomEvent.stop).on(link,'click',()=>{
+    map.setView(HS2_HOME_CENTER,HS2_HOME_ZOOM,{animate:true});
+  });
+  return container;
+};
+homeControl.addTo(map);
+
 // OpenStreetMap standard raster tiles. OSMF now specifies this exact host
 // (without a/b/c subdomains) and requires normal browser referrer behaviour.
 const osmTiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
@@ -161,6 +184,29 @@ const osmTiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
   crossOrigin:false,
   referrerPolicy:'strict-origin-when-cross-origin'
 }).addTo(map);
+
+// Background map selector (no API keys required).
+// These are third-party public tile services; their usage policies and availability apply.
+const aerialTiles=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+  maxZoom:19,
+  attribution:'Tiles &copy; Esri and its imagery contributors'
+});
+const humanitarianTiles=L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{
+  maxZoom:19,
+  subdomains:'abc',
+  attribution:'&copy; OpenStreetMap contributors, tiles by HOT/OSM France'
+});
+const topoTiles=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{
+  maxZoom:17,
+  subdomains:'abc',
+  attribution:'&copy; OpenStreetMap contributors, SRTM | map style &copy; OpenTopoMap (CC-BY-SA)'
+});
+L.control.layers({
+  'Street map — OpenStreetMap':osmTiles,
+  'Aerial imagery — Esri':aerialTiles,
+  'Humanitarian street map':humanitarianTiles,
+  'Topographic map':topoTiles
+},null,{position:'topright',collapsed:true}).addTo(map);
 
 let tileErrors=0;
 osmTiles.on('tileerror',()=>{
