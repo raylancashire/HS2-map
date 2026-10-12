@@ -162,6 +162,27 @@ const osmTiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
   referrerPolicy:'strict-origin-when-cross-origin'
 }).addTo(map);
 
+// Background map choices. Only one base layer is active at a time.
+// All existing HS2 route, property and boundary overlays remain untouched.
+const aerialTiles=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+  maxZoom:19,
+  attribution:'Tiles &copy; Esri and its imagery providers'
+});
+const lightTiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+  subdomains:'abcd',maxZoom:20,
+  attribution:'&copy; OpenStreetMap contributors &copy; CARTO'
+});
+const darkTiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  subdomains:'abcd',maxZoom:20,
+  attribution:'&copy; OpenStreetMap contributors &copy; CARTO'
+});
+L.control.layers({
+  'Street map (OpenStreetMap)':osmTiles,
+  'Aerial imagery (Esri)':aerialTiles,
+  'Light map (CARTO)':lightTiles,
+  'Dark map (CARTO)':darkTiles
+},null,{position:'topright',collapsed:true}).addTo(map);
+
 let tileErrors=0;
 osmTiles.on('tileerror',()=>{
   tileErrors++;
