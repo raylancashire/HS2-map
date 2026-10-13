@@ -157,3 +157,11 @@ body:has(#propertyAnalysis[open]) main{height:75vh;min-height:500px;flex:0 0 aut
 .additional-ward-row>span:nth-child(2){flex:1;min-width:90px}
 .additional-ward-row button{width:auto;margin:0;padding:6px 8px;font-size:12px}
 .additional-ward-swatch{display:inline-block;width:19px;border-top:3px solid}
+
+/* Ward name hover/focus affordance; temporary map highlight is drawn in JS. */
+.additional-ward-name{cursor:default;border-radius:3px;padding:3px 2px}
+.additional-ward-name:hover,.additional-ward-name:focus-visible{background:#e8eff8;outline:2px solid #597d9d;outline-offset:1px}
+
+/* Name shown inside the highlighted ward during hover/focus or selection preview. */
+.leaflet-tooltip.ward-preview-name{background:rgba(255,255,255,.95);border:1px solid #526478;border-radius:5px;box-shadow:0 1px 5px #0003;color:#172033;font-size:13px;font-weight:750;max-width:190px;white-space:normal;text-align:center;pointer-events:none;padding:5px 9px;}
+.leaflet-tooltip.ward-preview-name:before{display:none;}
