@@ -169,3 +169,16 @@ body:has(#propertyAnalysis[open]) main{height:75vh;min-height:500px;flex:0 0 aut
 /* A clicked ward name stays visually selected until clicked again. */
 .additional-ward-name.ward-pinned{background:#d8e9f7;outline:2px solid #28628c;outline-offset:1px;font-weight:750;cursor:pointer}
 .additional-ward-name{cursor:pointer}
+
+/* Important information confirmation, available on GitHub Pages and Webador. */
+.hs2-important-notice{position:relative;padding-right:58px}
+.hs2-important-notice[hidden]{display:none!important}
+.hs2-notice-close{position:absolute;top:9px;right:14px;width:32px;height:32px;margin:0;padding:0;background:transparent;color:#473815;border:1px solid #a98a45;border-radius:5px;font-size:24px;line-height:1;font-weight:500}
+.hs2-notice-close:hover,.hs2-notice-close:focus-visible{background:#f6e3b8}
+.hs2-notice-dialog{max-width:min(440px,calc(100vw - 32px));width:100%;box-sizing:border-box;padding:22px;border:1px solid #d4a643;border-radius:10px;color:#172033;background:white;box-shadow:0 14px 45px #0004}
+.hs2-notice-dialog::backdrop{background:rgba(14,27,43,.55)}
+.hs2-notice-dialog h2{font-size:19px;margin:0 0 12px}
+.hs2-notice-dialog p{margin:0 0 20px}
+.hs2-notice-dialog-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.hs2-notice-dialog-actions button{width:auto;margin:0;padding:10px 14px}
+.hs2-notice-dialog-actions #hs2NoticeKeep{background:#e9edf2;color:#172033}
