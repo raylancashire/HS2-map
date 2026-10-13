@@ -285,7 +285,7 @@ loadWardBoundary();
   wrapper.className='additional-wards';
   const heading=document.createElement('strong');heading.textContent='Other Ward Boundaries';
   const hint=document.createElement('p');hint.className='hint';
-  hint.textContent='Tap or click ward names to toggle multiple highlights. Tap again to remove a highlight. Suggested wards intersect the published 2013 tunnel alignment or lie within approximately 250 m. This does not indicate property damage. Queen’s Park remains red.';
+  hint.textContent='Tap or click ward names to toggle multiple highlights. Tap again to remove a highlight. Suggested wards intersect the published 2013 tunnel alignment or lie within approximately 250 m. This does not indicate property damage. Queen’s Park remains red. Use “Show all wards” to locate South Hampstead if it is not in the suggested list.';
   const borough=document.createElement('select');borough.id='additionalWardBorough';borough.setAttribute('aria-label','Choose borough');
   const selector=document.createElement('select');selector.id='additionalWardSelect';selector.setAttribute('aria-label','Choose ward');
   const allLabel=document.createElement('label');allLabel.className='check';
@@ -300,8 +300,8 @@ loadWardBoundary();
   const status=document.createElement('p');status.className='hint';status.setAttribute('role','status');
   wrapper.append(heading,hint,borough,selector,allLabel,controls,list,status);
   anchor.insertAdjacentElement('afterend',wrapper);
-  const boroughs=[['Westminster','Westminster'],['Brent','Brent'],['Kensington and Chelsea','RBKC'],['Hammersmith and Fulham','Hammersmith & Fulham']];
-  const colors={'Westminster':'#007F86','Brent':'#7C4DA5','Kensington and Chelsea':'#E38B20','Hammersmith and Fulham':'#26835D'};
+  const boroughs=[['Westminster','Westminster'],['Brent','Brent'],['Kensington and Chelsea','RBKC'],['Hammersmith and Fulham','Hammersmith & Fulham'],['Camden','Camden']];
+  const colors={'Westminster':'#007F86','Brent':'#7C4DA5','Kensington and Chelsea':'#E38B20','Hammersmith and Fulham':'#26835D','Camden':'#B24B68'};
   const active=new Map();const wards=new Map();let corridor=null;let corridorReady=false;
   const pinnedWardIds=new Set();
   let hoverWardId=null;
@@ -425,7 +425,7 @@ loadWardBoundary();
       }
       if(!wards.size)throw Error('No ward features returned');
       populate();
-      if(!corridorReady){showAll.checked=true;populate();hint.textContent='Proximity filtering unavailable. All wards are listed; select only those you wish to display. Queen’s Park remains red.';}
+      if(!corridorReady){showAll.checked=true;populate();hint.textContent='Proximity filtering unavailable. All wards are listed; select only those you wish to display. Queen’s Park remains red. Use “Show all wards” to locate South Hampstead if it is not in the suggested list.';}
     }catch(err){selector.replaceChildren(option('Ward list unavailable',''));status.textContent='Could not load wards: '+err.message;}
   })();
 })();
