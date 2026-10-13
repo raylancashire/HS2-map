@@ -145,3 +145,15 @@ body:has(#propertyAnalysis[open]) main{height:75vh;min-height:500px;flex:0 0 aut
 .hs2-important-notice strong{display:block;font-size:15px;margin-bottom:3px}
 .hs2-important-notice p{margin:3px 0}
 @media(max-width:760px){.hs2-important-notice{padding:11px 14px;font-size:13px}}
+
+/* Additional ward boundary selector */
+.additional-wards{margin:12px 0;padding:10px;border:1px solid #d9dfe5;border-radius:7px}
+.additional-wards>strong{display:block;margin-bottom:5px}
+.additional-wards select{width:100%;margin:7px 0}
+.additional-wards .check{font-size:12px;font-weight:500}
+.additional-ward-actions{display:flex;gap:7px}
+.additional-ward-actions button{flex:1}
+.additional-ward-row{display:flex;align-items:center;gap:7px;margin:6px 0;flex-wrap:wrap;font-size:12px}
+.additional-ward-row>span:nth-child(2){flex:1;min-width:90px}
+.additional-ward-row button{width:auto;margin:0;padding:6px 8px;font-size:12px}
+.additional-ward-swatch{display:inline-block;width:19px;border-top:3px solid}

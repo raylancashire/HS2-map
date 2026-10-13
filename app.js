@@ -274,59 +274,99 @@ const zoomQueenWard=document.querySelector('#zoomWard');
 if(zoomQueenWard)zoomQueenWard.addEventListener('click',()=>{const b=wardBoundaryLayer.getBounds();if(b.isValid())map.fitBounds(b.pad(.08));});
 loadWardBoundary();
 
-// Additional ward selector is inserted beside the existing ward controls.
+// Optional neighbouring wards from ONS December 2024 electoral boundaries.
+// Suggestions are spatially filtered against the published 2013 tunnel line;
+// this is geographic proximity only, NOT evidence of property damage.
 (function initialiseAdditionalWards(){
   const anchor=document.querySelector('#wardStatus')||document.querySelector('#zoomWard');
   if(!anchor)return;
   const wrapper=document.createElement('div');
   wrapper.id='additionalWardSelector';
-  wrapper.style.cssText='margin:12px 0;padding:10px;border:1px solid #d9dfe5;border-radius:7px';
-  const heading=document.createElement('strong');heading.textContent='Other Westminster ward boundaries';
-  const hint=document.createElement('p');hint.className='hint';hint.textContent='Select wards to add coloured outlines to the map. Queen’s Park remains red.';
-  const controls=document.createElement('div');controls.style.cssText='display:flex;gap:6px;flex-wrap:wrap;align-items:center';
-  const selector=document.createElement('select');selector.id='additionalWardSelect';selector.setAttribute('aria-label','Select another Westminster ward');selector.style.cssText='min-width:170px;max-width:100%;flex:1';
+  wrapper.className='additional-wards';
+  const heading=document.createElement('strong');heading.textContent='Other Ward Boundaries';
+  const hint=document.createElement('p');hint.className='hint';
+  hint.textContent='Suggested wards intersect the published 2013 tunnel alignment or lie within approximately 250 m. This does not indicate property damage. Queen’s Park remains red.';
+  const borough=document.createElement('select');borough.id='additionalWardBorough';borough.setAttribute('aria-label','Choose borough');
+  const selector=document.createElement('select');selector.id='additionalWardSelect';selector.setAttribute('aria-label','Choose ward');
+  const allLabel=document.createElement('label');allLabel.className='check';
+  const showAll=document.createElement('input');showAll.type='checkbox';showAll.id='showAllAdditionalWards';
+  allLabel.append(showAll,document.createTextNode(' Show all wards, including those farther from the tunnel'));
+  const controls=document.createElement('div');controls.className='additional-ward-actions';
   const add=document.createElement('button');add.type='button';add.textContent='Add ward';
   const clear=document.createElement('button');clear.type='button';clear.textContent='Remove all';
-  const list=document.createElement('div');list.id='selectedWardList';list.style.cssText='margin-top:8px';
+  controls.append(add,clear);
+  const list=document.createElement('div');list.id='selectedWardList';
   const status=document.createElement('p');status.className='hint';status.setAttribute('role','status');
-  controls.append(selector,add,clear);wrapper.append(heading,hint,controls,list,status);
+  wrapper.append(heading,hint,borough,selector,allLabel,controls,list,status);
   anchor.insertAdjacentElement('afterend',wrapper);
-  const colors=['#007F86','#E38B20','#2457A7','#7C4DA5','#198048','#B35C38'];
-  const active=new Map();let featuresByName=new Map();
+  const boroughs=[['Westminster','Westminster'],['Brent','Brent'],['Kensington and Chelsea','RBKC']];
+  const colors={'Westminster':'#007F86','Brent':'#7C4DA5','Kensington and Chelsea':'#E38B20'};
+  const active=new Map();const wards=new Map();let corridor=null;let corridorReady=false;
   function option(text,value){const o=document.createElement('option');o.textContent=text;o.value=value;return o;}
-  function populate(){selector.replaceChildren(option('Select a ward…',''));
-    for(const name of [...featuresByName.keys()].sort((a,b)=>a.localeCompare(b)))if(name.toLowerCase().replace(/[’‘]/g,"'")!=="queen's park")selector.append(option(name,name));
+  borough.replaceChildren(...boroughs.map(([value,label])=>option(label,value)));
+  function key(district,name){return district+'|'+name;}
+  function isSuggested(feature){
+    if(!corridorReady)return true;
+    if(!corridor||!window.turf)return false;
+    try{return turf.booleanIntersects(feature,corridor);}catch(_){return false;}
   }
-  function removeWard(name){const item=active.get(name);if(!item)return;map.removeLayer(item.layer);item.row.remove();active.delete(name);status.textContent=name+' removed.';}
-  function addWard(name){
-    if(!name||!featuresByName.has(name))return;
-    if(active.has(name)){map.fitBounds(active.get(name).layer.getBounds().pad(.1));return;}
-    const color=colors[active.size%colors.length];
-    const layer=L.geoJSON({type:'FeatureCollection',features:featuresByName.get(name)}, {
-      interactive:false,
-      style:{color,weight:2.5,opacity:1,fillOpacity:0},
-      onEachFeature:(feature,shape)=>shape.bindPopup('<strong>'+name.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</strong><br>Westminster ward<br>ONS December 2024')
+  function populate(){
+    const district=borough.value;
+    const available=[...wards.values()].filter(w=>w.district===district && (showAll.checked||w.suggested))
+      .sort((a,b)=>a.name.localeCompare(b.name));
+    selector.replaceChildren(option(available.length?'Select a ward…':'No matching wards',''));
+    available.forEach(w=>selector.append(option(w.name,key(w.district,w.name))));
+    const suggested=[...wards.values()].filter(w=>w.district===district&&w.suggested).length;
+    status.textContent=wards.size?`${suggested} ${district} wards near the published tunnel alignment. ${available.length} available in this list.`:'Loading ward boundaries…';
+  }
+  function removeWard(id){const item=active.get(id);if(!item)return;map.removeLayer(item.layer);item.row.remove();active.delete(id);}
+  function addWard(id){
+    const w=wards.get(id);if(!w)return;
+    if(active.has(id)){map.fitBounds(active.get(id).layer.getBounds().pad(.1));return;}
+    const color=colors[w.district];
+    const layer=L.geoJSON({type:'FeatureCollection',features:w.features},{
+      interactive:false,style:{color,weight:2.5,opacity:1,fillOpacity:0}
     }).addTo(map);
-    const row=document.createElement('div');row.style.cssText='display:flex;gap:7px;align-items:center;margin:5px 0';
-    const swatch=document.createElement('span');swatch.style.cssText='display:inline-block;width:19px;border-top:3px solid '+color;
-    const label=document.createElement('span');label.textContent=name;label.style.flex='1';
+    const row=document.createElement('div');row.className='additional-ward-row';
+    const swatch=document.createElement('span');swatch.className='additional-ward-swatch';swatch.style.borderColor=color;
+    const label=document.createElement('span');label.textContent=w.name+' ('+(w.district==='Kensington and Chelsea'?'RBKC':w.district)+')';
     const zoom=document.createElement('button');zoom.type='button';zoom.textContent='Zoom';zoom.addEventListener('click',()=>map.fitBounds(layer.getBounds().pad(.1)));
-    const remove=document.createElement('button');remove.type='button';remove.textContent='Remove';remove.addEventListener('click',()=>removeWard(name));
-    row.append(swatch,label,zoom,remove);list.append(row);active.set(name,{layer,row});status.textContent=name+' added.';
+    const remove=document.createElement('button');remove.type='button';remove.textContent='Remove';remove.addEventListener('click',()=>removeWard(id));
+    row.append(swatch,label,zoom,remove);list.append(row);active.set(id,{layer,row});
+    status.textContent=label.textContent+' added.';
   }
   add.addEventListener('click',()=>addWard(selector.value));
-  clear.addEventListener('click',()=>{for(const name of [...active.keys()])removeWard(name);});
-  selector.replaceChildren(option('Loading Westminster wards…',''));
+  clear.addEventListener('click',()=>{for(const id of [...active.keys()])removeWard(id);status.textContent='Other ward boundaries removed.';});
+  borough.addEventListener('change',populate);showAll.addEventListener('change',populate);
+  selector.replaceChildren(option('Loading wards…',''));
   (async()=>{
     try{
-      const features=(await queryWards("LAD24NM = 'Westminster'")).filter(f=>wardName(f)&&isWestminster(f));
-      if(!features.length)throw Error('No Westminster ward features returned');
-      for(const feature of features){const name=wardName(feature);if(!featuresByName.has(name))featuresByName.set(name,[]);featuresByName.get(name).push(feature);}
-      populate();status.textContent=(featuresByName.size-1)+' other Westminster wards available.';
-    }catch(err){
-      selector.replaceChildren(option('Ward list unavailable',''));
-      status.textContent='Could not load other wards: '+err.message+'. Check the ONS ArcGIS service.';
-    }
+      // The repository's 2013 line is a reference, not a verified as-built alignment.
+      const response=await fetch('hs2_queens_park_tunnel_centreline_2013.geojson');
+      if(!response.ok)throw Error('Tunnel reference HTTP '+response.status);
+      const route=await response.json();
+      if(!window.turf)throw Error('Turf mapping library unavailable');
+      corridor=turf.buffer(route,0.25,{units:'kilometers'});corridorReady=true;
+    }catch(err){console.warn('Ward proximity filter unavailable:',err);corridorReady=false;}
+    try{
+      const results=await Promise.all(boroughs.map(async ([district])=>{
+        const features=await queryWards("LAD24NM = '"+district.replace(/'/g,"''")+"'");
+        return {district,features};
+      }));
+      for(const {district,features} of results){
+        for(const feature of features){
+          const name=wardName(feature);if(!name)continue;
+          if(district==='Westminster'&&name.toLowerCase().replace(/[’‘]/g,"'")==="queen's park")continue;
+          const id=key(district,name);
+          if(!wards.has(id))wards.set(id,{district,name,features:[],suggested:false});
+          const item=wards.get(id);item.features.push(feature);
+          if(isSuggested(feature))item.suggested=true;
+        }
+      }
+      if(!wards.size)throw Error('No ward features returned');
+      populate();
+      if(!corridorReady){showAll.checked=true;populate();hint.textContent='Proximity filtering unavailable. All wards are listed; select only those you wish to display. Queen’s Park remains red.';}
+    }catch(err){selector.replaceChildren(option('Ward list unavailable',''));status.textContent='Could not load wards: '+err.message;}
   })();
 })();
 
