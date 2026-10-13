@@ -186,4 +186,4 @@ body:has(#propertyAnalysis[open]) main{height:75vh;min-height:500px;flex:0 0 aut
 /* Selected ward indication belongs in the dropdown, not the map label or added-ward list. */
 .additional-ward-name.ward-pinned{font-weight:750;font-style:normal}
 .leaflet-tooltip.ward-preview-name.ward-selected-name{font-weight:750;font-style:normal}
-#additionalWardSelect.ward-dropdown-pinned{font-weight:800;font-style:italic}
+#additionalWardSelect{font-weight:normal;font-style:normal}

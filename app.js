@@ -356,11 +356,11 @@ loadWardBoundary();
       const w=wards.get(opt.value);
       if(!w)continue;
       const selected=pinnedWardIds.has(opt.value);
-      opt.textContent=(selected?'✓ ':'')+w.name;
-      opt.style.fontWeight=selected?'bold':'';
-      opt.style.fontStyle=selected?'italic':'';
+      opt.textContent=w.name+(selected?' (highlighted)':'');
+      opt.style.fontWeight='normal';
+      opt.style.fontStyle='normal';
     }
-    selector.classList.toggle('ward-dropdown-pinned',pinnedWardIds.has(selector.value));
+    selector.classList.remove('ward-dropdown-pinned');
   }
   function option(text,value){const o=document.createElement('option');o.textContent=text;o.value=value;return o;}
   borough.replaceChildren(...boroughs.map(([value,label])=>option(label,value)));
