@@ -285,7 +285,7 @@ loadWardBoundary();
   wrapper.className='additional-wards';
   const heading=document.createElement('strong');heading.textContent='Other Ward Boundaries';
   const hint=document.createElement('p');hint.className='hint';
-  hint.textContent='Suggested wards intersect the published 2013 tunnel alignment or lie within approximately 250 m. This does not indicate property damage. Queen’s Park remains red.';
+  hint.textContent='Tap or click ward names to toggle multiple highlights. Tap again to remove a highlight. Suggested wards intersect the published 2013 tunnel alignment or lie within approximately 250 m. This does not indicate property damage. Queen’s Park remains red.';
   const borough=document.createElement('select');borough.id='additionalWardBorough';borough.setAttribute('aria-label','Choose borough');
   const selector=document.createElement('select');selector.id='additionalWardSelect';selector.setAttribute('aria-label','Choose ward');
   const allLabel=document.createElement('label');allLabel.className='check';
@@ -294,7 +294,8 @@ loadWardBoundary();
   const controls=document.createElement('div');controls.className='additional-ward-actions';
   const add=document.createElement('button');add.type='button';add.textContent='Add ward';
   const clear=document.createElement('button');clear.type='button';clear.textContent='Remove all';
-  controls.append(add,clear);
+  const clearHighlightsButton=document.createElement('button');clearHighlightsButton.type='button';clearHighlightsButton.textContent='Clear highlights';
+  controls.append(add,clear,clearHighlightsButton);
   const list=document.createElement('div');list.id='selectedWardList';
   const status=document.createElement('p');status.className='hint';status.setAttribute('role','status');
   wrapper.append(heading,hint,borough,selector,allLabel,controls,list,status);
@@ -302,40 +303,50 @@ loadWardBoundary();
   const boroughs=[['Westminster','Westminster'],['Brent','Brent'],['Kensington and Chelsea','RBKC'],['Hammersmith and Fulham','Hammersmith & Fulham']];
   const colors={'Westminster':'#007F86','Brent':'#7C4DA5','Kensington and Chelsea':'#E38B20','Hammersmith and Fulham':'#26835D'};
   const active=new Map();const wards=new Map();let corridor=null;let corridorReady=false;
-  let previewLayer=null;
-  let pinnedWardId=null;
+  const pinnedWardIds=new Set();
   let hoverWardId=null;
-  function clearPreview(){if(previewLayer){map.removeLayer(previewLayer);previewLayer=null;}}
+  const highlightLayers=new Map();
+  function clearHighlights(){
+    for(const layer of highlightLayers.values())map.removeLayer(layer);
+    highlightLayers.clear();
+  }
   function renderWardHighlight(){
-    clearPreview();
-    const id=hoverWardId||pinnedWardId;
-    const w=wards.get(id);if(!w)return;
-    const color=colors[w.district];
-    previewLayer=L.geoJSON({type:'FeatureCollection',features:w.features},{
-      interactive:true,style:{color,weight:4,opacity:1,fillColor:color,fillOpacity:.23}
-    }).addTo(map);
-    previewLayer.on('click',e=>{if(e.originalEvent)L.DomEvent.stopPropagation(e.originalEvent);togglePinnedWard(id);});
-    if(previewLayer.bringToFront)previewLayer.bringToFront();
-    const bounds=previewLayer.getBounds();
-    if(bounds.isValid()){
-      const label=L.tooltip({permanent:true,direction:'center',className:'ward-preview-name',interactive:false,opacity:1})
-        .setLatLng(bounds.getCenter()).setContent(w.name).addTo(map);
-      previewLayer.addLayer(label);
+    clearHighlights();
+    const ids=new Set(pinnedWardIds);
+    if(hoverWardId)ids.add(hoverWardId);
+    for(const id of ids){
+      const w=wards.get(id);if(!w)continue;
+      const color=colors[w.district];
+      const group=L.layerGroup().addTo(map);
+      const shape=L.geoJSON({type:'FeatureCollection',features:w.features},{
+        interactive:true,style:{color,weight:4,opacity:1,fillColor:color,fillOpacity:.23}
+      }).addTo(group);
+      shape.on('click',e=>{
+        if(e.originalEvent)L.DomEvent.stopPropagation(e.originalEvent);
+        togglePinnedWard(id);
+      });
+      const bounds=shape.getBounds();
+      if(bounds.isValid()){
+        L.tooltip({permanent:true,direction:'center',className:'ward-preview-name',interactive:false,opacity:1})
+          .setLatLng(bounds.getCenter()).setContent(w.name).addTo(group);
+      }
+      highlightLayers.set(id,group);
     }
   }
   function previewWard(id){hoverWardId=id||null;renderWardHighlight();}
   function endWardPreview(){hoverWardId=null;renderWardHighlight();}
   function togglePinnedWard(id){
     if(!wards.has(id))return;
-    pinnedWardId=pinnedWardId===id?null:id;
+    if(pinnedWardIds.has(id))pinnedWardIds.delete(id);
+    else pinnedWardIds.add(id);
     hoverWardId=null;
     renderWardHighlight();
     updatePinnedNames();
   }
   function updatePinnedNames(){
     for(const [id,item] of active){
-      item.label.classList.toggle('ward-pinned',id===pinnedWardId);
-      item.label.setAttribute('aria-pressed',String(id===pinnedWardId));
+      item.label.classList.toggle('ward-pinned',pinnedWardIds.has(id));
+      item.label.setAttribute('aria-pressed',String(pinnedWardIds.has(id)));
     }
   }
   function option(text,value){const o=document.createElement('option');o.textContent=text;o.value=value;return o;}
@@ -356,7 +367,7 @@ loadWardBoundary();
     const suggested=[...wards.values()].filter(w=>w.district===district&&w.suggested).length;
     status.textContent=wards.size?`${suggested} ${district} wards near the published tunnel alignment. ${available.length} available in this list.`:'Loading ward boundaries…';
   }
-  function removeWard(id){if(pinnedWardId===id)pinnedWardId=null;endWardPreview();const item=active.get(id);if(!item)return;map.removeLayer(item.layer);item.row.remove();active.delete(id);}
+  function removeWard(id){pinnedWardIds.delete(id);endWardPreview();updatePinnedNames();const item=active.get(id);if(!item)return;map.removeLayer(item.layer);item.row.remove();active.delete(id);}
   function addWard(id){
     const w=wards.get(id);if(!w)return;
     if(active.has(id)){map.fitBounds(active.get(id).layer.getBounds().pad(.1));return;}
@@ -367,7 +378,7 @@ loadWardBoundary();
     const row=document.createElement('div');row.className='additional-ward-row';
     const swatch=document.createElement('span');swatch.className='additional-ward-swatch';swatch.style.borderColor=color;
     const label=document.createElement('span');label.className='additional-ward-name';label.tabIndex=0;
-    label.title='Hover to preview; click to keep highlighted; click again to unselect';
+    label.title='Tap or click to toggle this ward highlight';
     label.setAttribute('role','button');label.setAttribute('aria-pressed','false');
     label.textContent=w.name+' ('+(w.district==='Kensington and Chelsea'?'RBKC':w.district==='Hammersmith and Fulham'?'Hammersmith & Fulham':w.district)+')';
     label.addEventListener('mouseenter',()=>previewWard(id));
@@ -384,7 +395,8 @@ loadWardBoundary();
   selector.addEventListener('change',()=>previewWard(selector.value));
   selector.addEventListener('focus',()=>{if(selector.value)previewWard(selector.value);});
   add.addEventListener('click',()=>{endWardPreview();addWard(selector.value);});
-  clear.addEventListener('click',()=>{pinnedWardId=null;endWardPreview();for(const id of [...active.keys()])removeWard(id);status.textContent='Other ward boundaries removed.';});
+  clearHighlightsButton.addEventListener('click',()=>{pinnedWardIds.clear();endWardPreview();updatePinnedNames();status.textContent='Ward highlights cleared.';});
+  clear.addEventListener('click',()=>{pinnedWardIds.clear();endWardPreview();for(const id of [...active.keys()])removeWard(id);status.textContent='Other ward boundaries removed.';});
   borough.addEventListener('change',populate);showAll.addEventListener('change',populate);
   selector.replaceChildren(option('Loading wards…',''));
   (async()=>{
