@@ -327,7 +327,7 @@ loadWardBoundary();
       });
       const bounds=shape.getBounds();
       if(bounds.isValid()){
-        L.tooltip({permanent:true,direction:'center',className:'ward-preview-name',interactive:false,opacity:1})
+        L.tooltip({permanent:true,direction:'center',className:pinnedWardIds.has(id)?'ward-preview-name ward-selected-name':'ward-preview-name',interactive:false,opacity:1})
           .setLatLng(bounds.getCenter()).setContent(w.name).addTo(group);
       }
       highlightLayers.set(id,group);

@@ -182,3 +182,7 @@ body:has(#propertyAnalysis[open]) main{height:75vh;min-height:500px;flex:0 0 aut
 .hs2-notice-dialog-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .hs2-notice-dialog-actions button{width:auto;margin:0;padding:10px 14px}
 .hs2-notice-dialog-actions #hs2NoticeKeep{background:#e9edf2;color:#172033}
+
+/* Selected ward names stay bold and italic, unlike hover-only previews. */
+.additional-ward-name.ward-pinned{font-weight:800;font-style:italic}
+.leaflet-tooltip.ward-preview-name.ward-selected-name{font-weight:800;font-style:italic}
