@@ -165,3 +165,7 @@ body:has(#propertyAnalysis[open]) main{height:75vh;min-height:500px;flex:0 0 aut
 /* Name shown inside the highlighted ward during hover/focus or selection preview. */
 .leaflet-tooltip.ward-preview-name{background:rgba(255,255,255,.95);border:1px solid #526478;border-radius:5px;box-shadow:0 1px 5px #0003;color:#172033;font-size:13px;font-weight:750;max-width:190px;white-space:normal;text-align:center;pointer-events:none;padding:5px 9px;}
 .leaflet-tooltip.ward-preview-name:before{display:none;}
+
+/* A clicked ward name stays visually selected until clicked again. */
+.additional-ward-name.ward-pinned{background:#d8e9f7;outline:2px solid #28628c;outline-offset:1px;font-weight:750;cursor:pointer}
+.additional-ward-name{cursor:pointer}
