@@ -327,7 +327,7 @@ loadWardBoundary();
       });
       const bounds=shape.getBounds();
       if(bounds.isValid()){
-        L.tooltip({permanent:true,direction:'center',className:pinnedWardIds.has(id)?'ward-preview-name ward-selected-name':'ward-preview-name',interactive:false,opacity:1})
+        L.tooltip({permanent:true,direction:'center',className:'ward-preview-name',interactive:false,opacity:1})
           .setLatLng(bounds.getCenter()).setContent(w.name).addTo(group);
       }
       highlightLayers.set(id,group);
@@ -348,6 +348,19 @@ loadWardBoundary();
       item.label.classList.toggle('ward-pinned',pinnedWardIds.has(id));
       item.label.setAttribute('aria-pressed',String(pinnedWardIds.has(id)));
     }
+    updateDropdownSelectedWards();
+  }
+  function updateDropdownSelectedWards(){
+    for(const opt of selector.options){
+      if(!opt.value)continue;
+      const w=wards.get(opt.value);
+      if(!w)continue;
+      const selected=pinnedWardIds.has(opt.value);
+      opt.textContent=(selected?'✓ ':'')+w.name;
+      opt.style.fontWeight=selected?'bold':'';
+      opt.style.fontStyle=selected?'italic':'';
+    }
+    selector.classList.toggle('ward-dropdown-pinned',pinnedWardIds.has(selector.value));
   }
   function option(text,value){const o=document.createElement('option');o.textContent=text;o.value=value;return o;}
   borough.replaceChildren(...boroughs.map(([value,label])=>option(label,value)));
@@ -364,6 +377,7 @@ loadWardBoundary();
       .sort((a,b)=>a.name.localeCompare(b.name));
     selector.replaceChildren(option(available.length?'Select a ward…':'No matching wards',''));
     available.forEach(w=>selector.append(option(w.name,key(w.district,w.name))));
+    updateDropdownSelectedWards();
     const suggested=[...wards.values()].filter(w=>w.district===district&&w.suggested).length;
     status.textContent=wards.size?`${suggested} ${district} wards near the published tunnel alignment. ${available.length} available in this list.`:'Loading ward boundaries…';
   }
@@ -392,7 +406,7 @@ loadWardBoundary();
     row.append(swatch,label,zoom,remove);list.append(row);active.set(id,{layer,row,label});updatePinnedNames();
     status.textContent=label.textContent+' added.';
   }
-  selector.addEventListener('change',()=>previewWard(selector.value));
+  selector.addEventListener('change',()=>{previewWard(selector.value);updateDropdownSelectedWards();});
   selector.addEventListener('focus',()=>{if(selector.value)previewWard(selector.value);});
   add.addEventListener('click',()=>{endWardPreview();addWard(selector.value);});
   clearHighlightsButton.addEventListener('click',()=>{pinnedWardIds.clear();endWardPreview();updatePinnedNames();status.textContent='Ward highlights cleared.';});
