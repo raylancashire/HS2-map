@@ -130,3 +130,18 @@ body:has(#propertyAnalysis[open]) main{height:75vh;min-height:500px;flex:0 0 aut
 #propertyAnalysis .analysis-accordion-body{padding:14px;min-width:0}
 #propertyAnalysis .analysis-accordion .analysis-table-wrap{max-width:100%;overflow:auto}
 @media(max-width:760px){#propertyAnalysis{margin-left:0;width:100%}}
+
+/* Permanent notice above the map, in both GitHub and Webador views. */
+.hs2-important-notice{
+  flex:0 0 auto;
+  margin:0;
+  padding:12px 22px;
+  background:#fff4d8;
+  border-bottom:2px solid #d4a643;
+  color:#473815;
+  font-size:14px;
+  line-height:1.45;
+}
+.hs2-important-notice strong{display:block;font-size:15px;margin-bottom:3px}
+.hs2-important-notice p{margin:3px 0}
+@media(max-width:760px){.hs2-important-notice{padding:11px 14px;font-size:13px}}
