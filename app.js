@@ -254,7 +254,7 @@ async function queryWards(where){
 }
 async function loadWardBoundary(){
   const status=document.querySelector('#wardStatus');
-  for(const source of ['queens-park-ward.geojson',null]){
+  for(const source of [null,'queens-park-ward.geojson']){
     try{
       let features;
       if(source){const response=await fetch(source);if(!response.ok)throw Error('HTTP '+response.status);features=(await response.json()).features||[];}
@@ -262,7 +262,7 @@ async function loadWardBoundary(){
       features=features.filter(f=>wardName(f).toLowerCase().replace(/[’‘]/g,"'")==="queen's park"&&isWestminster(f));
       if(!features.length)throw Error('Queen’s Park, Westminster not found');
       wardBoundaryLayer.clearLayers();wardBoundaryLayer.addData({type:'FeatureCollection',features});
-      if(status)status.textContent='ONS December 2024 Queen’s Park boundary loaded';
+      if(status)status.textContent=source?'Queen’s Park local boundary loaded (ONS service unavailable)':'ONS December 2024 Queen’s Park boundary loaded';
       return;
     }catch(err){if(status)status.textContent='Ward boundary: '+err.message;}
   }
