@@ -459,6 +459,43 @@ let published2013MainLines=[];
 let published2013AllLines=[];
 let distanceRouteSource='editable';
 function tunnelDistance(lat,lon){const activeLines=distanceRouteSource==='published2013both'?published2013AllLines:distanceRouteSource==='published2013'?published2013MainLines:routeLines;if(!activeLines.length)return NaN;const ref=lat,p=toXY(lat,lon,ref);let d=Infinity;activeLines.forEach(line=>{for(let i=0;i<line.length-1;i++){const a=line[i],b=line[i+1];d=Math.min(d,pointSegDist(p,toXY(a[0],a[1],ref),toXY(b[0],b[1],ref)))}});return d}
+// Draw the actual shortest horizontal measurement to the currently selected route.
+const measurementLayer=L.layerGroup().addTo(map);
+let measurementEnabled=false;
+function nearestTunnelPoint(lat,lon){
+ const lines=distanceRouteSource==='published2013both'?published2013AllLines:distanceRouteSource==='published2013'?published2013MainLines:routeLines;
+ const ref=lat,p=toXY(lat,lon,ref),rad=Math.PI/180,R=6371000;
+ let best=null;
+ for(const line of lines)for(let i=0;i<line.length-1;i++){
+  const a=toXY(line[i][0],line[i][1],ref),b=toXY(line[i+1][0],line[i+1][1],ref);
+  const dx=b.x-a.x,dy=b.y-a.y,den=dx*dx+dy*dy;
+  const t=den?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/den)):0;
+  const x=a.x+t*dx,y=a.y+t*dy,d=Math.hypot(p.x-x,p.y-y);
+  if(!best||d<best.distance)best={distance:d,lat:y/(rad*R),lon:x/(rad*R*Math.cos(ref*rad))};
+ }
+ return best;
+}
+function showTunnelMeasurement(property){
+ measurementLayer.clearLayers();
+ if(!measurementEnabled||!isLocalCoordinate(property.latitude,property.longitude))return;
+ const nearest=nearestTunnelPoint(+property.latitude,+property.longitude);
+ if(!nearest)return;
+ const start=[+property.latitude,+property.longitude],end=[nearest.lat,nearest.lon];
+ L.polyline([start,end],{color:'#192e8c',weight:3,dashArray:'7 5',interactive:false}).addTo(measurementLayer);
+ L.circleMarker(end,{radius:5,color:'#192e8c',fillColor:'#fff',fillOpacity:1,interactive:false}).addTo(measurementLayer);
+ L.tooltip({permanent:true,direction:'center',className:'hs2-measurement-label'})
+  .setLatLng([(start[0]+end[0])/2,(start[1]+end[1])/2])
+  .setContent(nearest.distance.toFixed(1)+' m').addTo(measurementLayer);
+}
+const measureLabel=document.createElement('label');
+measureLabel.className='check';
+measureLabel.innerHTML='<input type="checkbox" id="showTunnelMeasurement"> Show distance measurement for selected property';
+const housesToggle=document.querySelector('#showHouses');
+if(housesToggle)housesToggle.closest('label').insertAdjacentElement('afterend',measureLabel);
+measureLabel.querySelector('input').addEventListener('change',e=>{
+ measurementEnabled=e.target.checked;
+ measurementLayer.clearLayers();
+});
 function classify(d){return !Number.isFinite(d)?'unknown':d<=15?'d0':d<=30?'d15':d<=60?'d30':d<=100?'d60':'d100'}
 // A blank damage field is not evidence that a property is unaffected.
 function isUnaffected(p){
@@ -468,7 +505,7 @@ function iconFor(p){return L.divIcon({className:'',html:`<span class="house-mark
 let displayedMarkerProperties=[];
 function render(skipList=false){
  displayedMarkerProperties=[];
- markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;
+ measurementLayer.clearLayers();markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;
  let visible=0;
  properties.forEach(p=>{
   p.distance=isLocalCoordinate(p.latitude,p.longitude)?tunnelDistance(+p.latitude,+p.longitude):NaN;
@@ -488,8 +525,9 @@ function render(skipList=false){
   displayedMarkerProperties.push(p);
   const m=L.marker([+p.latitude,+p.longitude],{icon:iconFor(p)}).addTo(markerLayer);
   m.bindTooltip(`${esc(p.address)} — ${Number.isFinite(p.distance)?Math.round(p.distance)+' m (estimated)':'distance unavailable'}`);
-  m.on('click',()=>{if(!placingPin)showDetails(p)});
+  m.on('click',()=>{if(!placingPin){showDetails(p);showTunnelMeasurement(p)}});
   m.bindPopup(()=>propertyCard(p),{maxWidth:340,minWidth:240});
+  m.on('popupclose',()=>measurementLayer.clearLayers());
   m.on('popupopen',e=>{bindEditLocation(e.popup.getElement());bindPhotoButtons(e.popup.getElement());});
  });
  const known=properties.filter(p=>Number.isFinite(p.distance)).length;
