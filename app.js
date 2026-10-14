@@ -495,6 +495,7 @@ if(housesToggle)housesToggle.closest('label').insertAdjacentElement('afterend',m
 measureLabel.querySelector('input').addEventListener('change',e=>{
  measurementEnabled=e.target.checked;
  measurementLayer.clearLayers();
+ if(measurementEnabled)map.closePopup();
 });
 function classify(d){return !Number.isFinite(d)?'unknown':d<=15?'d0':d<=30?'d15':d<=60?'d30':d<=100?'d60':'d100'}
 // A blank damage field is not evidence that a property is unaffected.
@@ -527,8 +528,8 @@ function render(skipList=false){
   m.bindTooltip(`${esc(p.address)} — ${Number.isFinite(p.distance)?Math.round(p.distance)+' m (estimated)':'distance unavailable'}`);
   m.on('click',()=>{if(!placingPin){showDetails(p);showTunnelMeasurement(p)}});
   m.bindPopup(()=>propertyCard(p),{maxWidth:340,minWidth:240});
-  m.on('popupclose',()=>measurementLayer.clearLayers());
-  m.on('popupopen',e=>{bindEditLocation(e.popup.getElement());bindPhotoButtons(e.popup.getElement());});
+  m.on('popupclose',()=>{if(!measurementEnabled)measurementLayer.clearLayers();});
+  m.on('popupopen',e=>{if(measurementEnabled){m.closePopup();return;}bindEditLocation(e.popup.getElement());bindPhotoButtons(e.popup.getElement());});
  });
  const known=properties.filter(p=>Number.isFinite(p.distance)).length;
  document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Estimated tunnel distances: ${known} · Unavailable: ${properties.length-known}`;
