@@ -445,6 +445,9 @@ loadWardBoundary();
 })();
 
 let properties=[];
+function isPropertyIncluded(p){return String(p.mapVisibility||'').trim().toLowerCase()!=='excluded'}
+function publicProperties(){return properties.filter(isPropertyIncluded)}
+
 let photoIndex=[];
 
 let placingPin=false, draftPin=null;
@@ -509,6 +512,7 @@ function render(skipList=false){
  measurementLayer.clearLayers();markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;
  let visible=0;
  properties.forEach(p=>{
+  if(!isPropertyIncluded(p))return;
   p.distance=isLocalCoordinate(p.latitude,p.longitude)?tunnelDistance(+p.latitude,+p.longitude):NaN;
   p.status=classify(p.distance);
   if(!isLocalCoordinate(p.latitude,p.longitude))return;
@@ -531,8 +535,8 @@ function render(skipList=false){
   m.on('popupclose',()=>{if(!measurementEnabled)measurementLayer.clearLayers();});
   m.on('popupopen',e=>{if(measurementEnabled){m.closePopup();return;}bindEditLocation(e.popup.getElement());bindPhotoButtons(e.popup.getElement());});
  });
- const known=properties.filter(p=>Number.isFinite(p.distance)).length;
- document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Estimated tunnel distances: ${known} · Unavailable: ${properties.length-known}`;
+ const known=publicProperties().filter(p=>Number.isFinite(p.distance)).length;
+ document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${publicProperties().length}<br>Located: ${validProperties().length} · Unresolved: ${publicProperties().length-validProperties().length}<br>Estimated tunnel distances: ${known} · Unavailable: ${publicProperties().length-known}`;
  if(!skipList)renderPropertyList(q,filter);
  refreshPinOptions();
  document.dispatchEvent(new Event("hs2-properties-updated"));
@@ -568,7 +572,7 @@ function addressParts(address){
 }
 function renderPropertyList(q='',filter='all'){
  const el=document.querySelector('#propertyList');if(!el)return;
- const rows=properties.filter(p=>{
+ const rows=publicProperties().filter(p=>{
   const text=`${p.id} ${p.address} ${p.postcode||''} ${p.damage||''} ${p.notes||''}`.toLowerCase();
   return (!q||text.includes(q))&&(filter==='all'||(filter==='unaffected'&&isUnaffected(p))||(filter==='very-close'&&p.distance<=15)||(filter==='within-30'&&p.distance>15&&p.distance<=30)||(filter==='outside-30'&&p.distance>30));
  });
@@ -697,6 +701,7 @@ function focusProperty(p,zoom=19){
  map.stop();
  map.invalidateSize({pan:false});
  map.setView(L.latLng(lat,lon),zoom,{animate:false,reset:true});
+ if(measurementEnabled){showTunnelMeasurement(p);return;}
  const popup=L.popup({maxWidth:340,minWidth:240,autoPan:false,keepInView:false})
   .setLatLng([lat,lon]).setContent(propertyCard(p)).openOn(map);
  if(popup.getElement()){bindEditLocation(popup.getElement());bindPhotoButtons(popup.getElement());}
@@ -711,7 +716,7 @@ function splitCSV(line){let out=[],v='',q=false;for(let i=0;i<line.length;i++){c
 // Preserve quoted line breaks in free-text fields such as Damage.
 function csvRecords(text){let records=[],start=0,quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"')i++;else quoted=!quoted;}else if((c==='\n'||c==='\r')&&!quoted){const line=text.slice(start,i);if(line.trim())records.push(line);if(c==='\r'&&text[i+1]==='\n')i++;start=i+1;}}const last=text.slice(start);if(last.trim())records.push(last);return records;}
 function normaliseHeader(x){return String(x||'').toLowerCase().trim().replace(/[ _-]+/g,'')}
-function parseCSV(text){const lines=csvRecords(text.replace(/^\uFEFF/,''));if(lines.length<2)throw Error('The sheet has no data rows.');const raw=splitCSV(lines[0]);const aliases={id:['id','propertyid','ref','reference'],address:['address','propertyaddress','houseaddress'],postcode:['postcode','postalcode','zip'],latitude:['latitude','lat'],longitude:['longitude','lng','lon','long'],notes:['notes','note','comments','comment'],damage:['damage','damagedescription','propertydamage'],photos:['photos','photourls','photo','images','imageurls','photolinks']};const idx={};raw.forEach((h,i)=>{const n=normaliseHeader(h);for(const [key,vals] of Object.entries(aliases))if(vals.includes(n))idx[key]=i});if(idx.address===undefined)throw Error('Missing required column: Address.');const rows=[];lines.slice(1).forEach((line,i)=>{const a=splitCSV(line);if(!a.some(Boolean))return;const get=k=>idx[k]===undefined?'':(a[idx[k]]??'').trim();if(!get('address'))return;const lat=parseFloat(get('latitude')),lon=parseFloat(get('longitude'));rows.push({id:get('id')||String(rows.length+1).padStart(2,'0'),address:get('address'),postcode:get('postcode'),latitude:Number.isFinite(lat)?lat:null,longitude:Number.isFinite(lon)?lon:null,notes:get('notes'),damage:get('damage'),photos:get('photos'),rowNumber:i+2})});if(!rows.length)throw Error('No usable property rows were found.');return rows}
+function parseCSV(text){const lines=csvRecords(text.replace(/^\uFEFF/,''));if(lines.length<2)throw Error('The sheet has no data rows.');const raw=splitCSV(lines[0]);const aliases={id:['id','propertyid','ref','reference'],address:['address','propertyaddress','houseaddress'],postcode:['postcode','postalcode','zip'],latitude:['latitude','lat'],longitude:['longitude','lng','lon','long'],notes:['notes','note','comments','comment'],damage:['damage','damagedescription','propertydamage'],photos:['photos','photourls','photo','images','imageurls','photolinks'],mapVisibility:['mapvisibility','visibility','includeonmap']};const idx={};raw.forEach((h,i)=>{const n=normaliseHeader(h);for(const [key,vals] of Object.entries(aliases))if(vals.includes(n))idx[key]=i});if(idx.address===undefined)throw Error('Missing required column: Address.');const rows=[];lines.slice(1).forEach((line,i)=>{const a=splitCSV(line);if(!a.some(Boolean))return;const get=k=>idx[k]===undefined?'':(a[idx[k]]??'').trim();if(!get('address'))return;const lat=parseFloat(get('latitude')),lon=parseFloat(get('longitude'));rows.push({id:get('id')||String(rows.length+1).padStart(2,'0'),address:get('address'),postcode:get('postcode'),latitude:Number.isFinite(lat)?lat:null,longitude:Number.isFinite(lon)?lon:null,notes:get('notes'),damage:get('damage'),photos:get('photos'),mapVisibility:/^excluded$/i.test(get('mapVisibility'))?'Excluded':'Included',rowNumber:i+2})});if(!rows.length)throw Error('No usable property rows were found.');return rows}
 const GEOCODE_CACHE_VERSION='v3';
 const QP_BOUNDS={south:51.515,north:51.555,west:-0.245,east:-0.165};
 function isLocalCoordinate(lat,lon){lat=+lat;lon=+lon;return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=QP_BOUNDS.south&&lat<=QP_BOUNDS.north&&lon>=QP_BOUNDS.west&&lon<=QP_BOUNDS.east}
@@ -720,8 +725,8 @@ function readGeocodeCache(p){try{const v=JSON.parse(localStorage.getItem(cacheKe
 function saveGeocodeCache(p){try{localStorage.setItem(cacheKey(p),JSON.stringify({lat:+p.latitude,lon:+p.longitude,display:p.geocodeDisplay||'',saved:Date.now()}))}catch(e){}}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function geocodeOne(p){const query=[p.address,p.postcode,'London','UK'].filter(Boolean).join(', ');const base=cfg.geocoderUrl||'https://nominatim.openstreetmap.org/search';const url=base+'?format=jsonv2&limit=1&countrycodes=gb&q='+encodeURIComponent(query);const res=await fetch(url,{headers:{'Accept':'application/json'}});if(!res.ok)throw Error('Geocoder HTTP '+res.status);const data=await res.json();if(!data.length)return false;const lat=Number(data[0].lat),lon=Number(data[0].lon);if(!isLocalCoordinate(lat,lon))return false;p.latitude=lat;p.longitude=lon;p.geocodeDisplay=data[0].display_name||'';saveGeocodeCache(p);return true}
-async function resolveMissingCoordinates(rows){const missing=rows.filter(p=>!isLocalCoordinate(p.latitude,p.longitude));missing.forEach(readGeocodeCache);const todo=missing.filter(p=>!isLocalCoordinate(p.latitude,p.longitude));if(!todo.length)return {resolved:missing.length,failed:[]};const failed=[];for(let i=0;i<todo.length;i++){const p=todo[i];setDataStatus(`Locating address ${i+1} of ${todo.length}: ${p.address}${p.postcode?' · '+p.postcode:''}…`,'loading');try{if(!await geocodeOne(p))failed.push(p)}catch(e){failed.push(p)}if(i<todo.length-1)await sleep(Math.max(1100,cfg.geocodeDelayMs||1100))}return {resolved:missing.length-failed.length,failed}}
-function validProperties(){return properties.filter(p=>isLocalCoordinate(p.latitude,p.longitude))}
+async function resolveMissingCoordinates(rows){const missing=rows.filter(p=>isPropertyIncluded(p)&&!isLocalCoordinate(p.latitude,p.longitude));missing.forEach(readGeocodeCache);const todo=missing.filter(p=>!isLocalCoordinate(p.latitude,p.longitude));if(!todo.length)return {resolved:missing.length,failed:[]};const failed=[];for(let i=0;i<todo.length;i++){const p=todo[i];setDataStatus(`Locating address ${i+1} of ${todo.length}: ${p.address}${p.postcode?' · '+p.postcode:''}…`,'loading');try{if(!await geocodeOne(p))failed.push(p)}catch(e){failed.push(p)}if(i<todo.length-1)await sleep(Math.max(1100,cfg.geocodeDelayMs||1100))}return {resolved:missing.length-failed.length,failed}}
+function validProperties(){return publicProperties().filter(p=>isLocalCoordinate(p.latitude,p.longitude))}
 function showUnresolved(failed){const el=document.querySelector('#unresolved');if(!failed.length){el.innerHTML='';return}el.innerHTML=`<details open><summary>${failed.length} address${failed.length===1?'':'es'} could not be located</summary><ul>${failed.map(p=>`<li>${esc(p.address)}${p.postcode?' · '+esc(p.postcode):''}</li>`).join('')}</ul><p class=\"hint\">Check the spelling/postcode in the Google Sheet, then click Reload Google Sheet.</p></details>`}
 
 function setDataStatus(message,kind=''){const el=document.querySelector('#dataStatus');el.textContent=message;el.className='data-status '+kind}
@@ -1159,10 +1164,50 @@ document.querySelector('#savePin').addEventListener('click',()=>{
  stopPin();render();focusProperty(p);
  pinMsg('Pinpoint saved in this browser. Download CSV to back it up and share it.');
 });
+// Property inclusion management. Changes are provisional until the exported CSV is
+// imported into the source Google Sheet. No automatic Sheet writes are performed.
+function buildVisibilityEditor(){
+ if(HS2_PUBLIC_DISPLAY)return;
+ const editor=document.querySelector('#pinEditor');if(!editor)return;
+ const section=document.createElement('section');section.id='propertyVisibilityEditor';
+ section.innerHTML=`<h2>Property map visibility</h2><p class="hint">Include or exclude properties from the public map, list and analysis. Export the updated CSV and import it into Google Sheets to publish changes.</p>
+ <label>Property <select id="visibilityProperty" style="width:100%"></select></label>
+ <label>Map visibility <select id="visibilityValue"><option value="Included">Included</option><option value="Excluded">Excluded</option></select></label>
+ <button type="button" id="visibilityApply">Apply visibility</button>
+ <p id="visibilityMessage" class="hint" role="status"></p>
+ <details><summary id="visibilityExcludedCount">Excluded properties (0)</summary><div id="visibilityExcludedList"></div></details>`;
+ editor.insertAdjacentElement('afterend',section);
+ const sel=section.querySelector('#visibilityProperty'),value=section.querySelector('#visibilityValue'),msg=section.querySelector('#visibilityMessage');
+ function update(){
+  const previous=sel.value;
+  sel.innerHTML=properties.map((p,i)=>`<option value="${i}">${esc(p.address)}${p.id?' · ID '+esc(p.id):''}${!isPropertyIncluded(p)?' (Excluded)':''}</option>`).join('');
+  if(previous!==''&&Number(previous)<properties.length)sel.value=previous;
+  value.value=properties[+sel.value]&& !isPropertyIncluded(properties[+sel.value])?'Excluded':'Included';
+  const excluded=properties.map((p,i)=>({p,i})).filter(({p})=>!isPropertyIncluded(p));
+  section.querySelector('#visibilityExcludedCount').textContent=`Excluded properties (${excluded.length})`;
+  const list=section.querySelector('#visibilityExcludedList');list.replaceChildren();
+  excluded.forEach(({p,i})=>{const line=document.createElement('div');line.style.margin='6px 0';
+   const label=document.createElement('span');label.textContent=p.address+' · ID '+(p.id||'—')+' ';
+   const restore=document.createElement('button');restore.type='button';restore.textContent='Include';
+   restore.addEventListener('click',()=>{p.mapVisibility='Included';render();msg.textContent=p.address+' included. Export CSV to publish.'});
+   line.append(label,restore);list.append(line);
+  });
+ }
+ sel.addEventListener('change',()=>{value.value=isPropertyIncluded(properties[+sel.value])?'Included':'Excluded'});
+ section.querySelector('#visibilityApply').addEventListener('click',()=>{
+  const p=properties[+sel.value];if(!p)return;
+  p.mapVisibility=value.value;
+  map.closePopup();document.querySelector('#details').innerHTML='';
+  render();msg.textContent=p.address+' set to '+value.value+'. Download the updated CSV to publish.';
+ });
+ document.addEventListener('hs2-properties-updated',update);
+ update();
+}
+buildVisibilityEditor();
 function csvCell(v){const s=String(v??'');return '"'+s.replace(/"/g,'""')+'"'}
 function propertyCsv(){
- const headers=['ID','Address','Postcode','Latitude','Longitude','Notes','Damage','Photos','Location Source'];
- const rows=properties.map(p=>[p.id,p.address,p.postcode,p.latitude??'',p.longitude??'',p.notes,p.damage||'',p.photos,p.locationSource||'geocoded']);
+ const headers=['ID','Address','Postcode','Latitude','Longitude','Notes','Damage','Photos','Location Source','Map Visibility'];
+ const rows=properties.map(p=>[p.id,p.address,p.postcode,p.latitude??'',p.longitude??'',p.notes,p.damage||'',p.photos,p.locationSource||'geocoded',isPropertyIncluded(p)?'Included':'Excluded']);
  return '\uFEFF'+[headers,...rows].map(r=>r.map(csvCell).join(',')).join('\r\n');
 }
 function showCsvFallback(csv){
@@ -1199,7 +1244,7 @@ document.querySelector('#photoIndexFile').addEventListener('change',async e=>{
 loadPhotoIndex();
 
 // Read-only bridge for the optional analysis panel.
-window.HS2PropertyAnalysis={getProperties:()=>properties,focusProperty:(p)=>focusProperty(p),getVisibleProperties:()=>map.hasLayer(markerLayer)?displayedMarkerProperties.filter(p=>map.getBounds().contains([+p.latitude,+p.longitude])):[],focusProperty:(p)=>focusProperty(p)};
+window.HS2PropertyAnalysis={getProperties:()=>publicProperties(),focusProperty:(p)=>focusProperty(p),getVisibleProperties:()=>map.hasLayer(markerLayer)?displayedMarkerProperties.filter(p=>map.getBounds().contains([+p.latitude,+p.longitude])):[],focusProperty:(p)=>focusProperty(p)};
 map.on("moveend zoomend",()=>document.dispatchEvent(new Event("hs2-map-viewport-updated")));
 map.on("overlayadd overlayremove",()=>document.dispatchEvent(new Event("hs2-map-viewport-updated")));
 document.querySelector("#showHouses")?.addEventListener("change",()=>document.dispatchEvent(new Event("hs2-map-viewport-updated")));
