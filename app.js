@@ -569,6 +569,23 @@ function addressParts(address){
 }
 function renderPropertyList(q='',filter='all'){
  const el=document.querySelector('#propertyList');if(!el)return;
+ // Administration-only totals, based on the Google Sheet's Map Visibility field.
+ // Keep excluded properties out of the visible address listing.
+ const heading=el.closest('section')?.querySelector('h2');
+ if(heading){
+  let counts=heading.querySelector('#hs2-property-visibility-counts');
+  if(HS2_PUBLIC_DISPLAY){if(counts)counts.remove();}
+  else{
+   if(!counts){
+    counts=document.createElement('small');
+    counts.id='hs2-property-visibility-counts';
+    counts.style.cssText='display:block;font-size:.75em;font-weight:400;margin-top:4px;color:#52637a';
+    heading.appendChild(counts);
+   }
+   const omitted=properties.filter(p=>!isPropertyIncluded(p)).length;
+   counts.textContent=`${properties.length-omitted} included · ${omitted} omitted`;
+  }
+ }
  const rows=properties.filter(p=>{
   if(!isPropertyIncluded(p))return false;
   const text=`${p.id} ${p.address} ${p.postcode||''} ${p.damage||''} ${p.notes||''}`.toLowerCase();
