@@ -1000,7 +1000,7 @@ function applyManualPins(){
  const pins=storedPins(), matched=new Set();
  properties.forEach(p=>{
   const override=matchSavedPin(p,pins);
-  if(override){Object.assign(p,{address:override.address||p.address,postcode:override.postcode??p.postcode,notes:override.notes??p.notes,damage:override.damage??p.damage,mapVisibility:override.mapVisibility??p.mapVisibility});
+  if(override){Object.assign(p,{address:override.address||p.address,postcode:override.postcode??p.postcode,notes:override.notes??p.notes,mapVisibility:override.mapVisibility??p.mapVisibility});
    if(isLocalCoordinate(override.latitude,override.longitude)){p.latitude=override.latitude;p.longitude=override.longitude;p.locationSource='manual'}
    matched.add(pinKey(override));
   }
