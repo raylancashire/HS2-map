@@ -90,7 +90,9 @@
   const csv='\uFEFF'+[fields,...rows].map(row=>row.map(quote).join(',')).join('\r\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='hs2-property-analysis.csv';document.body.append(a);a.click();a.remove();
  });
- document.addEventListener('hs2-properties-updated',()=>{if(panel.open)render()});
+ document.addEventListener('hs2-properties-updated',render);
  document.addEventListener('hs2-map-viewport-updated',()=>{if(panel.open)renderVisibleDistance()});
  panel.addEventListener('toggle',()=>{if(panel.open)render()});
+ // Populate the always-visible summary even when the dashboard is closed.
+ if(window.HS2PropertyAnalysis)render();
 })();
