@@ -528,16 +528,16 @@ function refreshIncidentAreas(){
    if(note)note.textContent='Heatmap library could not load. Please check your connection and refresh the page.';
    return;
   }
-  // Leaflet.heat takes a radius in screen pixels, so recompute on zoom to
-  // preserve a radius specified in metres rather than changing geographic scale.
-  const lat=points.reduce((sum,p)=>sum+Number(p.latitude),0)/points.length;
-  const metersPerPixel=40075016.686*Math.cos(lat*Math.PI/180)/(256*Math.pow(2,map.getZoom()));
-  const radiusPixels=Math.max(8,Math.min(220,radius/metersPerPixel));
+  // Keep kernels small enough for smooth interpolation. Leaflet.heat uses
+  // radius/2 grid aggregation internally; oversized radii cause square patches.
+  // The dropdown now controls relative smoothing size at the current zoom.
+  const radiusPixels=radius===50?28:radius===100?56:42;
   const samples=points.map(p=>[Number(p.latitude),Number(p.longitude),1]);
   incidentHeatLayer=L.heatLayer(samples,{
-   pane:'incidentAreasPane',radius:radiusPixels,blur:Math.max(8,Math.round(radiusPixels*0.60)),
-   minOpacity:0,maxZoom:map.getZoom(),max:Math.max(2,points.length*0.15),
-   gradient:{0.15:'#3940a5',0.35:'#00b8dc',0.52:'#36d75a',0.72:'#f7e642',0.90:'#ff8b22',1:'#d7191c'}
+   pane:'incidentAreasPane',radius:radiusPixels,
+   blur:Math.round(radiusPixels*0.95),
+   minOpacity:0,maxZoom:18,max:1,
+   gradient:{0.12:'#3146b8',0.30:'#00b8e4',0.48:'#3ad46b',0.66:'#f5ed43',0.83:'#ff9327',1:'#d7191c'}
   }).addTo(map);
   const canvas=incidentHeatLayer._canvas;
   if(canvas){canvas.style.opacity=String(opacity);canvas.style.pointerEvents='none';}
