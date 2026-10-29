@@ -143,3 +143,14 @@ main>#map{height:100%;min-height:0;}
 #liveSummaryCards .analysis-stats{margin:0;}
 body:has(#propertyAnalysis[open]) main{height:65vh;min-height:500px;}
 @media(max-width:760px){main{height:auto;min-height:0;overflow:visible;}main>aside{height:38vh;max-height:38vh;}main>#map{height:55vh;min-height:360px;}#liveSummaryCards{margin-left:0;padding:12px;}body:has(#propertyAnalysis[open]) main{height:auto;min-height:0;}}
+
+/* Optional reported incident areas overlay controls */
+.incident-layer-controls{margin:12px 0;padding:10px;border:1px solid #dbe3ec;border-radius:7px;background:#f8fafc}
+.incident-layer-controls>.check{margin:0 0 6px}
+.incident-options{padding-left:2px}
+.incident-options label{font-size:12px}
+.incident-options input[type=range]{width:100%}
+.incident-legend{display:flex;flex-wrap:wrap;gap:8px;font-size:11px}
+.incident-legend span{display:inline-flex;align-items:center;gap:4px}
+.incident-legend i{display:inline-block;width:12px;height:12px;border-radius:50%}
+.incident-layer-controls:has(#showIncidentAreas:not(:checked)) .incident-options{display:none}

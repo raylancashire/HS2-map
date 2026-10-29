@@ -502,6 +502,42 @@ function classify(d){return !Number.isFinite(d)?'unknown':d<=15?'d0':d<=30?'d15'
 function isUnaffected(p){
  return /^(?:unaffected|non[ -]?affected|no damage(?: recorded)?|no visible damage|none|nil)[.!\s]*$/i.test(String(p.damage||'').trim());
 }
+// Reported incident areas: exploratory density layer, not a verified HS2 impact boundary.
+// Uses the Sheet's Damage field and coordinates; excludes blank, unaffected and omitted records.
+const incidentAreaLayer=L.layerGroup().addTo(map);
+function reportedIncident(p){
+ const damage=String(p.damage||'').trim();
+ return isPropertyIncluded(p)&&isLocalCoordinate(p.latitude,p.longitude)&&!!damage&&!isUnaffected(p);
+}
+function refreshIncidentAreas(){
+ incidentAreaLayer.clearLayers();
+ const toggle=document.getElementById('showIncidentAreas');
+ if(!toggle||!toggle.checked)return;
+ const radius=Number(document.getElementById('incidentRadius')?.value||75);
+ const opacity=Number(document.getElementById('incidentOpacity')?.value||45)/100;
+ const points=properties.filter(reportedIncident);
+ // Count neighbours within the selected radius; colour is relative to this dataset.
+ const coords=points.map(p=>L.latLng(+p.latitude,+p.longitude));
+ const counts=coords.map((pt,i)=>coords.reduce((n,other,j)=>n+(i!==j&&pt.distanceTo(other)<=radius?1:0),1));
+ const max=Math.max(1,...counts);
+ coords.forEach((pt,i)=>{
+  const fraction=counts[i]/max;
+  const fill=fraction>=0.67?'#e34b4b':fraction>=0.34?'#f5a142':'#f6d75c';
+  L.circle(pt,{radius,color:fill,weight:0,fillColor:fill,fillOpacity:opacity*0.32,interactive:false}).addTo(incidentAreaLayer);
+ });
+ // Place higher-density areas above the softer base areas.
+ coords.forEach((pt,i)=>{
+  const fraction=counts[i]/max;
+  if(fraction<0.34)return;
+  const fill=fraction>=0.67?'#d92f38':'#ed8b24';
+  L.circle(pt,{radius:radius*0.48,color:fill,weight:0,fillColor:fill,fillOpacity:opacity*0.44,interactive:false}).addTo(incidentAreaLayer);
+ });
+ const note=document.getElementById('incidentAreaStatus');
+ if(note)note.textContent=`${points.length} properties with damage descriptions and usable locations; density is relative, not proof of HS2 causation.`;
+}
+for(const id of ['showIncidentAreas','incidentRadius','incidentOpacity']){
+ document.getElementById(id)?.addEventListener('input',refreshIncidentAreas);
+}
 function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}${!String(p.damage||'').trim()||/^(no damage|none|nil|no damage recorded|no visible damage|non-affected|non affected|unaffected)[.!\s]*$/i.test(String(p.damage).trim())?' no-damage':''}" aria-label="${esc(p.address)}"></span>`,iconSize:[12,12],iconAnchor:[6,6]})}
 let displayedMarkerProperties=[];
 function render(skipList=false){
@@ -534,6 +570,7 @@ function render(skipList=false){
  });
  const known=properties.filter(p=>isPropertyIncluded(p)&&Number.isFinite(p.distance)).length;
  document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Estimated tunnel distances: ${known} · Unavailable: ${properties.length-known}`;
+ refreshIncidentAreas();
  if(!skipList)renderPropertyList(q,filter);
  refreshPinOptions();
  document.dispatchEvent(new Event("hs2-properties-updated"));
