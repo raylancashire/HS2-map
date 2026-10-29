@@ -154,3 +154,4 @@ body:has(#propertyAnalysis[open]) main{height:65vh;min-height:500px;}
 .incident-legend span{display:inline-flex;align-items:center;gap:4px}
 .incident-legend i{display:inline-block;width:12px;height:12px;border-radius:50%}
 .incident-layer-controls:has(#showIncidentAreas:not(:checked)) .incident-options{display:none}
+\n/* Heatmap canvas stays below markers and cannot intercept map clicks. */\n.leaflet-incidentAreasPane canvas{pointer-events:none!important;}\n

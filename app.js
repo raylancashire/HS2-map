@@ -502,26 +502,48 @@ function classify(d){return !Number.isFinite(d)?'unknown':d<=15?'d0':d<=30?'d15'
 function isUnaffected(p){
  return /^(?:unaffected|non[ -]?affected|no damage(?: recorded)?|no visible damage|none|nil)[.!\s]*$/i.test(String(p.damage||'').trim());
 }
-// Reported incident areas: exploratory density layer, not a verified HS2 impact boundary.
-// Uses the Sheet's Damage field and coordinates; excludes blank, unaffected and omitted records.
-// Dedicated pane: keep density shading above safeguarding polygons but below property markers.
+// Reported incident visualisation: density heatmap or outlined exploratory clusters.
 map.createPane('incidentAreasPane');
 map.getPane('incidentAreasPane').style.zIndex='590';
 map.getPane('incidentAreasPane').style.pointerEvents='none';
 const incidentAreaLayer=L.layerGroup().addTo(map);
+let incidentHeatLayer=null;
 function reportedIncident(p){
  const damage=String(p.damage||'').trim();
  return isPropertyIncluded(p)&&isLocalCoordinate(p.latitude,p.longitude)&&!!damage&&!isUnaffected(p);
 }
 function refreshIncidentAreas(){
  incidentAreaLayer.clearLayers();
+ if(incidentHeatLayer){map.removeLayer(incidentHeatLayer);incidentHeatLayer=null;}
  const toggle=document.getElementById('showIncidentAreas');
- if(!toggle||!toggle.checked){const note=document.getElementById('incidentAreaStatus');if(note)note.textContent='Layer switched off.';return;}
+ const note=document.getElementById('incidentAreaStatus');
+ if(!toggle||!toggle.checked){if(note)note.textContent='Layer switched off.';return;}
  const radius=Number(document.getElementById('incidentRadius')?.value||75);
- const opacity=Number(document.getElementById('incidentOpacity')?.value||45)/100;
+ const opacity=Number(document.getElementById('incidentOpacity')?.value||55)/100;
+ const mode=document.getElementById('incidentStyle')?.value||'heatmap';
  const points=properties.filter(reportedIncident);
- // Join nearby incidents into distinct, outlined exploratory areas.
- // Turf buffers create rounded outlines; the polygon is a visual grouping, not a legal boundary.
+ if(!points.length){if(note)note.textContent='No qualifying damage records with usable coordinates were found.';return;}
+ if(mode==='heatmap'){
+  if(typeof L.heatLayer!=='function'){
+   if(note)note.textContent='Heatmap library could not load. Please check your connection and refresh the page.';
+   return;
+  }
+  // Leaflet.heat takes a radius in screen pixels, so recompute on zoom to
+  // preserve a radius specified in metres rather than changing geographic scale.
+  const lat=points.reduce((sum,p)=>sum+Number(p.latitude),0)/points.length;
+  const metersPerPixel=40075016.686*Math.cos(lat*Math.PI/180)/(256*Math.pow(2,map.getZoom()));
+  const radiusPixels=Math.max(8,Math.min(220,radius/metersPerPixel));
+  const samples=points.map(p=>[Number(p.latitude),Number(p.longitude),1]);
+  incidentHeatLayer=L.heatLayer(samples,{
+   pane:'incidentAreasPane',radius:radiusPixels,blur:Math.max(8,Math.round(radiusPixels*0.60)),
+   minOpacity:0,maxZoom:map.getZoom(),max:Math.max(2,points.length*0.15),
+   gradient:{0.15:'#3940a5',0.35:'#00b8dc',0.52:'#36d75a',0.72:'#f7e642',0.90:'#ff8b22',1:'#d7191c'}
+  }).addTo(map);
+  const canvas=incidentHeatLayer._canvas;
+  if(canvas){canvas.style.opacity=String(opacity);canvas.style.pointerEvents='none';}
+  if(note)note.textContent=`Hotspot density based on ${points.length} mapped damage reports. Colours show relative concentrations, not damage severity or confirmed HS2 impact.`;
+  return;
+ }
  const coords=points.map(p=>L.latLng(+p.latitude,+p.longitude));
  const visited=new Set(),clusters=[];
  for(let i=0;i<coords.length;i++){
@@ -529,35 +551,29 @@ function refreshIncidentAreas(){
   const group=[],queue=[i];visited.add(i);
   while(queue.length){
    const j=queue.shift();group.push(j);
-   for(let k=0;k<coords.length;k++){
+   for(let k=0;k<coords.length;k++)
     if(!visited.has(k)&&coords[j].distanceTo(coords[k])<=radius*1.4){visited.add(k);queue.push(k);}
-   }
   }
   clusters.push(group);
  }
  const max=Math.max(1,...clusters.map(c=>c.length));
  clusters.forEach(group=>{
   const locations=group.map(i=>[coords[i].lng,coords[i].lat]);
-  const n=group.length;
-  const fraction=n/max;
+  const fraction=group.length/max;
   const fill=fraction>=0.67?'#df3945':fraction>=0.34?'#f09b35':'#f4d35e';
   const outline=fraction>=0.67?'#ae1f2d':fraction>=0.34?'#b86b13':'#ac8a19';
   try{
-   let shape;
-   if(n===1)shape=turf.point(locations[0]);
-   else if(n===2)shape=turf.lineString(locations);
-   else shape=turf.convex(turf.featureCollection(locations.map(x=>turf.point(x))))||turf.multiPoint(locations);
+   const shape=locations.length===1?turf.point(locations[0]):locations.length===2?turf.lineString(locations):turf.convex(turf.featureCollection(locations.map(x=>turf.point(x))))||turf.multiPoint(locations);
    const buffered=turf.buffer(shape,Math.max(12,radius*0.30),{units:'meters',steps:12});
-   if(!buffered)return;
-   L.geoJSON(buffered,{pane:'incidentAreasPane',interactive:false,style:{color:outline,weight:2,opacity:0.95,fillColor:fill,fillOpacity:Math.max(0.18,Math.min(0.72,opacity))}}).addTo(incidentAreaLayer);
+   if(buffered)L.geoJSON(buffered,{pane:'incidentAreasPane',interactive:false,style:{color:outline,weight:2,opacity:0.95,fillColor:fill,fillOpacity:Math.max(0.18,Math.min(0.72,opacity))}}).addTo(incidentAreaLayer);
   }catch(err){console.warn('Could not draw incident area',err);}
  });
- const note=document.getElementById('incidentAreaStatus');
- if(note)note.textContent=points.length?`${points.length} properties with recorded damage and usable locations. Outlined areas group nearby reports; boundaries are illustrative, not verified HS2 affected areas.`:'No qualifying damage records with usable coordinates were found. Check the Damage column in Google Sheets.';
+ if(note)note.textContent=`${points.length} mapped damage reports. Outlined areas group nearby reports; boundaries are illustrative.`;
 }
-for(const id of ['showIncidentAreas','incidentRadius','incidentOpacity']){
+for(const id of ['showIncidentAreas','incidentRadius','incidentOpacity','incidentStyle']){
  document.getElementById(id)?.addEventListener('input',refreshIncidentAreas);
 }
+map.on('zoomend',()=>{if(document.getElementById('showIncidentAreas')?.checked&&document.getElementById('incidentStyle')?.value==='heatmap')refreshIncidentAreas();});
 function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}${!String(p.damage||'').trim()||/^(no damage|none|nil|no damage recorded|no visible damage|non-affected|non affected|unaffected)[.!\s]*$/i.test(String(p.damage).trim())?' no-damage':''}" aria-label="${esc(p.address)}"></span>`,iconSize:[12,12],iconAnchor:[6,6]})}
 let displayedMarkerProperties=[];
 function render(skipList=false){
