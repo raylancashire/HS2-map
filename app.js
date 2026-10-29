@@ -508,6 +508,58 @@ map.getPane('incidentAreasPane').style.zIndex='590';
 map.getPane('incidentAreasPane').style.pointerEvents='none';
 const incidentAreaLayer=L.layerGroup().addTo(map);
 let incidentHeatLayer=null;
+// Continuous screen-space Gaussian kernels; no grid binning or square-cell boundaries.
+const SmoothIncidentDensity=L.Layer.extend({
+ initialize(samples,options){this.samples=samples;this.options=options;},
+ onAdd(map){
+  this._map=map;
+  this._canvas=L.DomUtil.create('canvas','hs2-smooth-density',map.getPane('incidentAreasPane'));
+  this._canvas.style.cssText='position:absolute;pointer-events:none;';
+  map.on('moveend resize zoomend',this._draw,this);
+  this._draw();
+ },
+ onRemove(map){map.off('moveend resize zoomend',this._draw,this);this._canvas.remove();},
+ _draw(){
+  const map=this._map,sz=map.getSize(),scale=0.5;
+  if(!sz.x||!sz.y)return;
+  const w=Math.ceil(sz.x*scale),h=Math.ceil(sz.y*scale),canvas=this._canvas;
+  canvas.width=w;canvas.height=h;
+  canvas.style.width=sz.x+'px';canvas.style.height=sz.y+'px';
+  const corner=map.containerPointToLayerPoint([0,0]);
+  L.DomUtil.setPosition(canvas,corner);
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  const latitude=this.samples.reduce((a,p)=>a+p[0],0)/this.samples.length;
+  const metersPerPixel=40075016.686*Math.cos(latitude*Math.PI/180)/(256*Math.pow(2,map.getZoom()));
+  const radius=Math.max(8,Math.min(230,this.options.radiusMeters/metersPerPixel))*scale;
+  // Additive alpha makes every incident contribute continuously across its circular kernel.
+  ctx.globalCompositeOperation='lighter';
+  for(const [lat,lng] of this.samples){
+   const p=map.latLngToContainerPoint([lat,lng]),x=p.x*scale,y=p.y*scale;
+   if(x < -radius||x>w+radius||y < -radius||y>h+radius)continue;
+   const g=ctx.createRadialGradient(x,y,0,x,y,radius);
+   g.addColorStop(0,'rgba(255,255,255,0.22)');
+   g.addColorStop(0.25,'rgba(255,255,255,0.16)');
+   g.addColorStop(0.55,'rgba(255,255,255,0.08)');
+   g.addColorStop(1,'rgba(255,255,255,0)');
+   ctx.fillStyle=g;ctx.fillRect(x-radius,y-radius,radius*2,radius*2);
+  }
+  const data=ctx.getImageData(0,0,w,h),pixels=data.data;
+  const stops=[[0.05,[49,70,184]],[0.20,[0,184,228]],[0.38,[58,212,107]],[0.58,[245,237,67]],[0.78,[255,147,39]],[1,[215,25,28]]];
+  for(let i=0;i<pixels.length;i+=4){
+   const density=pixels[i+3]/255;
+   if(density<0.035){pixels[i+3]=0;continue;}
+   const t=Math.min(1,density/0.75);
+   let j=1;while(j<stops.length-1&&t>stops[j][0])j++;
+   const [a,ca]=stops[j-1],[b,cb]=stops[j],f=Math.max(0,Math.min(1,(t-a)/(b-a)));
+   pixels[i]=ca[0]+(cb[0]-ca[0])*f;
+   pixels[i+1]=ca[1]+(cb[1]-ca[1])*f;
+   pixels[i+2]=ca[2]+(cb[2]-ca[2])*f;
+   pixels[i+3]=Math.round(255*this.options.opacity*Math.min(1,(density-0.035)/0.12));
+  }
+  ctx.globalCompositeOperation='source-over';ctx.putImageData(data,0,0);
+ }
+});
+
 function reportedIncident(p){
  const damage=String(p.damage||'').trim();
  return isPropertyIncluded(p)&&isLocalCoordinate(p.latitude,p.longitude)&&!!damage&&!isUnaffected(p);
@@ -524,24 +576,10 @@ function refreshIncidentAreas(){
  const points=properties.filter(reportedIncident);
  if(!points.length){if(note)note.textContent='No qualifying damage records with usable coordinates were found.';return;}
  if(mode==='heatmap'){
-  if(typeof L.heatLayer!=='function'){
-   if(note)note.textContent='Heatmap library could not load. Please check your connection and refresh the page.';
-   return;
-  }
-  // Keep kernels small enough for smooth interpolation. Leaflet.heat uses
-  // radius/2 grid aggregation internally; oversized radii cause square patches.
-  // The dropdown now controls relative smoothing size at the current zoom.
-  const radiusPixels=radius===50?28:radius===100?56:42;
-  const samples=points.map(p=>[Number(p.latitude),Number(p.longitude),1]);
-  incidentHeatLayer=L.heatLayer(samples,{
-   pane:'incidentAreasPane',radius:radiusPixels,
-   blur:Math.round(radiusPixels*0.95),
-   minOpacity:0,maxZoom:18,max:1,
-   gradient:{0.12:'#3146b8',0.30:'#00b8e4',0.48:'#3ad46b',0.66:'#f5ed43',0.83:'#ff9327',1:'#d7191c'}
-  }).addTo(map);
-  const canvas=incidentHeatLayer._canvas;
-  if(canvas){canvas.style.opacity=String(opacity);canvas.style.pointerEvents='none';}
-  if(note)note.textContent=`Hotspot density based on ${points.length} mapped damage reports. Colours show relative concentrations, not damage severity or confirmed HS2 impact.`;
+  // Draw a continuous density field instead of Leaflet.heat's cell-aggregated grid.
+  const samples=points.map(p=>[Number(p.latitude),Number(p.longitude)]);
+  incidentHeatLayer=new SmoothIncidentDensity(samples,{radiusMeters:radius,opacity}).addTo(map);
+  if(note)note.textContent=`Smooth density from ${points.length} mapped damage reports. Colour indicates report concentration, not damage severity or HS2 causation.`;
   return;
  }
  const coords=points.map(p=>L.latLng(+p.latitude,+p.longitude));
