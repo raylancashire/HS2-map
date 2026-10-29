@@ -504,6 +504,10 @@ function isUnaffected(p){
 }
 // Reported incident areas: exploratory density layer, not a verified HS2 impact boundary.
 // Uses the Sheet's Damage field and coordinates; excludes blank, unaffected and omitted records.
+// Dedicated pane: keep density shading above safeguarding polygons but below property markers.
+map.createPane('incidentAreasPane');
+map.getPane('incidentAreasPane').style.zIndex='590';
+map.getPane('incidentAreasPane').style.pointerEvents='none';
 const incidentAreaLayer=L.layerGroup().addTo(map);
 function reportedIncident(p){
  const damage=String(p.damage||'').trim();
@@ -512,7 +516,7 @@ function reportedIncident(p){
 function refreshIncidentAreas(){
  incidentAreaLayer.clearLayers();
  const toggle=document.getElementById('showIncidentAreas');
- if(!toggle||!toggle.checked)return;
+ if(!toggle||!toggle.checked){const note=document.getElementById('incidentAreaStatus');if(note)note.textContent='Layer switched off.';return;}
  const radius=Number(document.getElementById('incidentRadius')?.value||75);
  const opacity=Number(document.getElementById('incidentOpacity')?.value||45)/100;
  const points=properties.filter(reportedIncident);
@@ -523,17 +527,17 @@ function refreshIncidentAreas(){
  coords.forEach((pt,i)=>{
   const fraction=counts[i]/max;
   const fill=fraction>=0.67?'#e34b4b':fraction>=0.34?'#f5a142':'#f6d75c';
-  L.circle(pt,{radius,color:fill,weight:0,fillColor:fill,fillOpacity:opacity*0.32,interactive:false}).addTo(incidentAreaLayer);
+  L.circle(pt,{radius,color:fill,weight:0,fillColor:fill,fillOpacity:Math.max(0.22,opacity*0.8),pane:'incidentAreasPane',interactive:false}).addTo(incidentAreaLayer);
  });
  // Place higher-density areas above the softer base areas.
  coords.forEach((pt,i)=>{
   const fraction=counts[i]/max;
   if(fraction<0.34)return;
   const fill=fraction>=0.67?'#d92f38':'#ed8b24';
-  L.circle(pt,{radius:radius*0.48,color:fill,weight:0,fillColor:fill,fillOpacity:opacity*0.44,interactive:false}).addTo(incidentAreaLayer);
+  L.circle(pt,{radius:radius*0.48,color:fill,weight:0,fillColor:fill,fillOpacity:Math.max(0.30,opacity),pane:'incidentAreasPane',interactive:false}).addTo(incidentAreaLayer);
  });
  const note=document.getElementById('incidentAreaStatus');
- if(note)note.textContent=`${points.length} properties with damage descriptions and usable locations; density is relative, not proof of HS2 causation.`;
+ if(note)note.textContent=points.length?`${points.length} properties with recorded damage and usable locations. Coloured circles show relative concentrations, not verified affected-area boundaries.`:'No qualifying damage records with usable coordinates were found. Check the Damage column in Google Sheets.';
 }
 for(const id of ['showIncidentAreas','incidentRadius','incidentOpacity']){
  document.getElementById(id)?.addEventListener('input',refreshIncidentAreas);
