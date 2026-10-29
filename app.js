@@ -520,24 +520,40 @@ function refreshIncidentAreas(){
  const radius=Number(document.getElementById('incidentRadius')?.value||75);
  const opacity=Number(document.getElementById('incidentOpacity')?.value||45)/100;
  const points=properties.filter(reportedIncident);
- // Count neighbours within the selected radius; colour is relative to this dataset.
+ // Join nearby incidents into distinct, outlined exploratory areas.
+ // Turf buffers create rounded outlines; the polygon is a visual grouping, not a legal boundary.
  const coords=points.map(p=>L.latLng(+p.latitude,+p.longitude));
- const counts=coords.map((pt,i)=>coords.reduce((n,other,j)=>n+(i!==j&&pt.distanceTo(other)<=radius?1:0),1));
- const max=Math.max(1,...counts);
- coords.forEach((pt,i)=>{
-  const fraction=counts[i]/max;
-  const fill=fraction>=0.67?'#e34b4b':fraction>=0.34?'#f5a142':'#f6d75c';
-  L.circle(pt,{radius,color:fill,weight:0,fillColor:fill,fillOpacity:Math.max(0.22,opacity*0.8),pane:'incidentAreasPane',interactive:false}).addTo(incidentAreaLayer);
- });
- // Place higher-density areas above the softer base areas.
- coords.forEach((pt,i)=>{
-  const fraction=counts[i]/max;
-  if(fraction<0.34)return;
-  const fill=fraction>=0.67?'#d92f38':'#ed8b24';
-  L.circle(pt,{radius:radius*0.48,color:fill,weight:0,fillColor:fill,fillOpacity:Math.max(0.30,opacity),pane:'incidentAreasPane',interactive:false}).addTo(incidentAreaLayer);
+ const visited=new Set(),clusters=[];
+ for(let i=0;i<coords.length;i++){
+  if(visited.has(i))continue;
+  const group=[],queue=[i];visited.add(i);
+  while(queue.length){
+   const j=queue.shift();group.push(j);
+   for(let k=0;k<coords.length;k++){
+    if(!visited.has(k)&&coords[j].distanceTo(coords[k])<=radius*1.4){visited.add(k);queue.push(k);}
+   }
+  }
+  clusters.push(group);
+ }
+ const max=Math.max(1,...clusters.map(c=>c.length));
+ clusters.forEach(group=>{
+  const locations=group.map(i=>[coords[i].lng,coords[i].lat]);
+  const n=group.length;
+  const fraction=n/max;
+  const fill=fraction>=0.67?'#df3945':fraction>=0.34?'#f09b35':'#f4d35e';
+  const outline=fraction>=0.67?'#ae1f2d':fraction>=0.34?'#b86b13':'#ac8a19';
+  try{
+   let shape;
+   if(n===1)shape=turf.point(locations[0]);
+   else if(n===2)shape=turf.lineString(locations);
+   else shape=turf.convex(turf.featureCollection(locations.map(x=>turf.point(x))))||turf.multiPoint(locations);
+   const buffered=turf.buffer(shape,Math.max(12,radius*0.30),{units:'meters',steps:12});
+   if(!buffered)return;
+   L.geoJSON(buffered,{pane:'incidentAreasPane',interactive:false,style:{color:outline,weight:2,opacity:0.95,fillColor:fill,fillOpacity:Math.max(0.18,Math.min(0.72,opacity))}}).addTo(incidentAreaLayer);
+  }catch(err){console.warn('Could not draw incident area',err);}
  });
  const note=document.getElementById('incidentAreaStatus');
- if(note)note.textContent=points.length?`${points.length} properties with recorded damage and usable locations. Coloured circles show relative concentrations, not verified affected-area boundaries.`:'No qualifying damage records with usable coordinates were found. Check the Damage column in Google Sheets.';
+ if(note)note.textContent=points.length?`${points.length} properties with recorded damage and usable locations. Outlined areas group nearby reports; boundaries are illustrative, not verified HS2 affected areas.`:'No qualifying damage records with usable coordinates were found. Check the Damage column in Google Sheets.';
 }
 for(const id of ['showIncidentAreas','incidentRadius','incidentOpacity']){
  document.getElementById(id)?.addEventListener('input',refreshIncidentAreas);
