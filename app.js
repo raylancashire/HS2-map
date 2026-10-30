@@ -841,7 +841,7 @@ function splitCSV(line){let out=[],v='',q=false;for(let i=0;i<line.length;i++){c
 // Preserve quoted line breaks in free-text fields such as Damage.
 function csvRecords(text){let records=[],start=0,quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"')i++;else quoted=!quoted;}else if((c==='\n'||c==='\r')&&!quoted){const line=text.slice(start,i);if(line.trim())records.push(line);if(c==='\r'&&text[i+1]==='\n')i++;start=i+1;}}const last=text.slice(start);if(last.trim())records.push(last);return records;}
 function normaliseHeader(x){return String(x||'').toLowerCase().trim().replace(/[ _-]+/g,'')}
-function parseCSV(text){const lines=csvRecords(text.replace(/^\uFEFF/,''));if(lines.length<2)throw Error('The sheet has no data rows.');const raw=splitCSV(lines[0]);const aliases={id:['id','propertyid','ref','reference'],address:['address','propertyaddress','houseaddress'],postcode:['postcode','postalcode','zip'],latitude:['latitude','lat'],longitude:['longitude','lng','lon','long'],notes:['notes','note','comments','comment'],damage:['damage','damagedescription','propertydamage'],photos:['photos','photourls','photo','images','imageurls','photolinks'],mapVisibility:['mapvisibility','visibility','includeonmap']};const idx={};raw.forEach((h,i)=>{const n=normaliseHeader(h);for(const [key,vals] of Object.entries(aliases))if(vals.includes(n))idx[key]=i});if(idx.address===undefined)throw Error('Missing required column: Address.');const rows=[];lines.slice(1).forEach((line,i)=>{const a=splitCSV(line);if(!a.some(Boolean))return;const get=k=>idx[k]===undefined?'':(a[idx[k]]??'').trim();if(!get('address'))return;const lat=parseFloat(get('latitude')),lon=parseFloat(get('longitude'));rows.push({id:get('id')||String(rows.length+1).padStart(2,'0'),address:get('address'),postcode:get('postcode'),latitude:Number.isFinite(lat)?lat:null,longitude:Number.isFinite(lon)?lon:null,notes:get('notes'),damage:get('damage'),photos:get('photos'),mapVisibility:get('mapVisibility')||'Included',rowNumber:i+2})});if(!rows.length)throw Error('No usable property rows were found.');return rows}
+function parseCSV(text){const lines=csvRecords(text.replace(/^\uFEFF/,''));if(lines.length<2)throw Error('The sheet has no data rows.');const raw=splitCSV(lines[0]);const aliases={id:['id','propertyid','ref','reference'],address:['address','propertyaddress','houseaddress'],postcode:['postcode','postalcode','zip'],latitude:['latitude','lat'],longitude:['longitude','lng','lon','long'],notes:['notes','note','comments','comment'],damage:['damage','damagedescription','propertydamage'],photos:['photos','photourls','photo','images','imageurls','photolinks'],mapVisibility:['mapvisibility','visibility','includeonmap'],claimReported:['claimreported','claimsubmitted','claimmade'],claimResult:['claimresult','claimoutcome','claimstatus']};const idx={};raw.forEach((h,i)=>{const n=normaliseHeader(h);for(const [key,vals] of Object.entries(aliases))if(vals.includes(n))idx[key]=i});if(idx.address===undefined)throw Error('Missing required column: Address.');const rows=[];lines.slice(1).forEach((line,i)=>{const a=splitCSV(line);if(!a.some(Boolean))return;const get=k=>idx[k]===undefined?'':(a[idx[k]]??'').trim();if(!get('address'))return;const lat=parseFloat(get('latitude')),lon=parseFloat(get('longitude'));rows.push({id:get('id')||String(rows.length+1).padStart(2,'0'),address:get('address'),postcode:get('postcode'),latitude:Number.isFinite(lat)?lat:null,longitude:Number.isFinite(lon)?lon:null,notes:get('notes'),damage:get('damage'),claimReported:get('claimReported'),claimResult:get('claimResult'),photos:get('photos'),mapVisibility:get('mapVisibility')||'Included',rowNumber:i+2})});if(!rows.length)throw Error('No usable property rows were found.');return rows}
 const GEOCODE_CACHE_VERSION='v3';
 const QP_BOUNDS={south:51.515,north:51.555,west:-0.245,east:-0.165};
 function isLocalCoordinate(lat,lon){lat=+lat;lon=+lon;return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=QP_BOUNDS.south&&lat<=QP_BOUNDS.north&&lon>=QP_BOUNDS.west&&lon<=QP_BOUNDS.east}
@@ -1200,6 +1200,14 @@ function localPropertyMatches(p,pins){
 })();
 function setEditorVisibility(p){const el=document.getElementById('pinMapVisibility');if(el)el.value=isPropertyIncluded(p||{})?'Included':'Excluded'}
 function editorVisibility(){return document.getElementById('pinMapVisibility')?.value||'Included'}
+function setEditorClaims(p){
+ document.getElementById('pinClaimReported').value=p?.claimReported||'';
+ document.getElementById('pinClaimResult').value=p?.claimResult||'';
+}
+function editorClaims(){
+ return {claimReported:document.getElementById('pinClaimReported').value,
+         claimResult:document.getElementById('pinClaimResult').value};
+}
 function updateRemoveLocalButton(){
  const button=document.querySelector('#removeLocalProperty');
  if(!button)return;
@@ -1220,7 +1228,7 @@ document.querySelector('#removeLocalProperty')?.addEventListener('click',async()
  for(const [key] of matches)delete pins[key];
  try{localStorage.setItem(MANUAL_KEY,JSON.stringify(pins))}catch(e){pinMsg('Could not remove local property: '+e.message);return;}
  stopPin();sel.value='new';
- for(const id of ['pinAddress','pinPostcode','pinNotes','pinDamage'])document.querySelector('#'+id).value='';
+ for(const id of ['pinAddress','pinPostcode','pinNotes','pinDamage'])document.querySelector('#'+id).value='';setEditorClaims(null);
  pinMsg('Local record removed. Reloading properties…');
  if(cfg.useGoogleSheet!==false)await loadGoogleSheet();
  else {properties=properties.filter(v=>v!==p);render();}
@@ -1238,7 +1246,7 @@ function selectPropertyForEditing(index){
  stopPin();document.querySelector('#pinProperty').value=String(index);updateRemoveLocalButton();
  document.querySelector('#pinAddress').value=p.address;
  document.querySelector('#pinPostcode').value=p.postcode||'';
- document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';setEditorVisibility(p);
+ document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';setEditorVisibility(p);setEditorClaims(p);
  if(isLocalCoordinate(p.latitude,p.longitude))focusProperty(p);
  pinMsg('Selected '+p.address+'. Click Place pinpoint on map to correct its location.');
  document.querySelector('#pinEditor').scrollIntoView({behavior:'smooth',block:'start'});
@@ -1252,8 +1260,8 @@ function bindEditLocation(container){
 }
 document.querySelector('#pinProperty').addEventListener('change',e=>{
  updateRemoveLocalButton();
- const p=properties[+e.target.value];if(e.target.value==='new'||!p){document.querySelector('#pinAddress').value='';document.querySelector('#pinPostcode').value='';document.querySelector('#pinNotes').value='';document.querySelector('#pinDamage').value='';setEditorVisibility(null);return}
- document.querySelector('#pinAddress').value=p.address;document.querySelector('#pinPostcode').value=p.postcode||'';document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';setEditorVisibility(p);
+ const p=properties[+e.target.value];if(e.target.value==='new'||!p){document.querySelector('#pinAddress').value='';document.querySelector('#pinPostcode').value='';document.querySelector('#pinNotes').value='';document.querySelector('#pinDamage').value='';setEditorVisibility(null);setEditorClaims(null);return}
+ document.querySelector('#pinAddress').value=p.address;document.querySelector('#pinPostcode').value=p.postcode||'';document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';setEditorVisibility(p);setEditorClaims(p);
  focusProperty(p);
 });
 document.querySelector('#saveDetails').addEventListener('click',()=>{
@@ -1262,7 +1270,7 @@ document.querySelector('#saveDetails').addEventListener('click',()=>{
  const original=properties[+chosen];if(!original)return;
  const address=document.querySelector('#pinAddress').value.trim();
  if(!address){pinMsg('Please enter the street address.');return}
- const updated={...original,address,postcode:document.querySelector('#pinPostcode').value.trim(),notes:document.querySelector('#pinNotes').value.trim(),damage:document.querySelector('#pinDamage').value.trim(),mapVisibility:editorVisibility()};
+ const updated={...original,address,postcode:document.querySelector('#pinPostcode').value.trim(),notes:document.querySelector('#pinNotes').value.trim(),damage:document.querySelector('#pinDamage').value.trim(),...editorClaims(),mapVisibility:editorVisibility()};
  try{persistProperty(original,updated)}catch(e){pinMsg('Could not save in this browser: '+e.message);return}
  render();if(isPropertyIncluded(updated))focusProperty(updated);pinMsg('Street name and property details saved locally. Export CSV to update your Google Sheet.');
 });
@@ -1297,15 +1305,15 @@ document.querySelector('#savePin').addEventListener('click',()=>{
  const chosen=document.querySelector('#pinProperty').value;
  const original=chosen==='new'?null:properties[+chosen];
  const id=original?.id||'M'+Date.now().toString(36).toUpperCase();
- const p={...(original||{}),id,address,postcode,notes:document.querySelector('#pinNotes').value.trim(),damage:document.querySelector('#pinDamage').value.trim(),mapVisibility:editorVisibility(),latitude:+loc.lat.toFixed(7),longitude:+loc.lng.toFixed(7),locationSource:'manual'};
+ const p={...(original||{}),id,address,postcode,notes:document.querySelector('#pinNotes').value.trim(),damage:document.querySelector('#pinDamage').value.trim(),...editorClaims(),mapVisibility:editorVisibility(),latitude:+loc.lat.toFixed(7),longitude:+loc.lng.toFixed(7),locationSource:'manual'};
  try{persistProperty(original,p)}catch(e){pinMsg('Browser storage failed: '+e.message);return}
  stopPin();render();if(isPropertyIncluded(p))focusProperty(p);
  pinMsg('Pinpoint saved in this browser. Download CSV to back it up and share it.');
 });
 function csvCell(v){const s=String(v??'');return '"'+s.replace(/"/g,'""')+'"'}
 function propertyCsv(){
- const headers=['ID','Address','Postcode','Latitude','Longitude','Notes','Damage','Photos','Location Source','Map Visibility'];
- const rows=properties.map(p=>[p.id,p.address,p.postcode,p.latitude??'',p.longitude??'',p.notes,p.damage||'',p.photos,p.locationSource||'geocoded',isPropertyIncluded(p)?'Included':'Excluded']);
+ const headers=['ID','Address','Postcode','Latitude','Longitude','Notes','Damage','Claim Reported','Claim Result','Photos','Location Source','Map Visibility'];
+ const rows=properties.map(p=>[p.id,p.address,p.postcode,p.latitude??'',p.longitude??'',p.notes,p.damage||'',p.claimReported||'',p.claimResult||'',p.photos,p.locationSource||'geocoded',isPropertyIncluded(p)?'Included':'Excluded']);
  return '\uFEFF'+[headers,...rows].map(r=>r.map(csvCell).join(',')).join('\r\n');
 }
 function showCsvFallback(csv){

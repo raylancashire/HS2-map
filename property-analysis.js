@@ -65,9 +65,35 @@
   if(!count){count=document.createElement('p');count.id='analysisVisibleCount';count.className='analysis-visible-count';container.parentElement.insertBefore(count,container);}
   count.textContent=`Showing ${ps.length} of ${api.getProperties().length} properties in the current map view`;
  }
+ function renderClaims(all){
+  const ps=all.filter(item=>!/^(excluded)$/i.test(String(item.mapVisibility||'').trim()));
+  const norm=s=>String(s??'').trim().toLowerCase().replace(/[\\s_-]+/g,' ');
+  const yes=ps.filter(item=>norm(item.claimReported)==='yes');
+  const no=ps.filter(item=>norm(item.claimReported)==='no');
+  const unknown=ps.length-yes.length-no.length;
+  const results=['Pending','Under Review','Accepted','Rejected','Withdrawn','Settled','Other'];
+  const grouped=results.map(label=>[label,yes.filter(item=>norm(item.claimResult)===norm(label)).length]);
+  const notRecorded=yes.filter(item=>!norm(item.claimResult)).length;
+  const unrecognised=yes.filter(item=>norm(item.claimResult)&&!results.some(label=>norm(item.claimResult)===norm(label))).length;
+  const host=$('analysisClaims');
+  if(!host)return;
+  host.innerHTML=`<div class="analysis-stats claims-stats">
+    <div class="analysis-stat"><strong>${yes.length}</strong><span>Claims reported</span></div>
+    <div class="analysis-stat"><strong>${no.length}</strong><span>No claim reported</span></div>
+    <div class="analysis-stat"><strong>${unknown}</strong><span>Unknown / not recorded</span></div>
+    <div class="analysis-stat"><strong>${ps.length}</strong><span>Included properties</span></div>
+   </div>
+   <h3>Outcomes for reported claims</h3>
+   <div class="analysis-table-wrap"><table class="analysis-table"><thead><tr><th>Claim result</th><th>Properties</th></tr></thead><tbody>
+   ${grouped.map(([label,n])=>`<tr><td>${escape(label)}</td><td>${n}</td></tr>`).join('')}
+   <tr><td>Not recorded</td><td>${notRecorded}</td></tr>
+   ${unrecognised?`<tr><td>Other recorded values</td><td>${unrecognised}</td></tr>`:''}
+   </tbody></table></div>
+   <p class="hint">Outcome counts cover only properties marked Claim Reported = Yes. These are records in the Sheet, not independently verified claim decisions.</p>`;
+ }
  function render(){
   const api=window.HS2PropertyAnalysis;if(!api)return;
-  const ps=api.getProperties();const known=ps.filter(hasDistance);const observed=ps.filter(p=>damageCategory(p)==='Observation recorded');
+  const ps=api.getProperties();renderClaims(ps);const known=ps.filter(hasDistance);const observed=ps.filter(p=>damageCategory(p)==='Observation recorded');
   const stats=[['Properties recorded',ps.length],['Located / measured',known.length],['Observations recorded',observed.length],['Streets',new Set(ps.map(street)).size]];
   $('analysisStats').innerHTML=stats.map(([label,n])=>`<div class="analysis-stat"><strong>${n}</strong><span>${escape(label)}</span></div>`).join('');
   renderVisibleDistance();
