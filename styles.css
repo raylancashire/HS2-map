@@ -161,3 +161,10 @@ body:has(#propertyAnalysis[open]) main{height:65vh;min-height:500px;}
 .hotspot-compare-grid h2 span{font-weight:400;color:#536678}
 .compare-map{height:380px;min-height:280px;border-radius:6px;overflow:hidden}
 @media(max-width:850px){.hotspot-compare-grid{grid-template-columns:1fr}.compare-map{height:340px}}
+
+/* Consistent density legend for main hotspot and side-by-side maps. */
+.hs2-density-scale{max-width:390px;margin:10px 0 7px;}
+.hs2-density-gradient{height:13px;border-radius:5px;border:1px solid #d6dee6;background:linear-gradient(90deg,#3940a5 0%,#2781c1 20%,#36a867 42%,#f7e642 65%,#f28c28 82%,#d7191c 100%);}
+.hs2-density-labels{display:flex;justify-content:space-between;gap:10px;margin-top:4px;font-size:11px;color:#526477;}
+.hs2-density-explanation{margin:4px 0 8px;}
+.hotspot-compare-grid .hs2-density-scale{max-width:none;margin:9px 0 0;}
