@@ -152,6 +152,38 @@ function hs2BuildPublicSettingsPanel(){
 }
 
 const map=L.map('map',{zoomControl:true}).setView([51.5340,-0.2050],15);
+// A real Leaflet control keeps the legend in the control pane, above tile and overlay panes.
+const hs2HotspotLegendControl=L.control({position:'bottomright'});
+hs2HotspotLegendControl.onAdd=function(){
+ const el=L.DomUtil.create('div','leaflet-control hs2-floating-hotspot-legend');
+ el.id='hs2FloatingHotspotLegend';
+ el.setAttribute('role','note');
+ el.setAttribute('aria-label','Hotspot density colour legend');
+ el.innerHTML='<strong>Hotspot density</strong><div class="hs2-density-gradient" aria-hidden="true"></div><div class="hs2-density-labels"><span>Lower</span><span>Higher</span></div><p>Concentration of recorded properties, not damage severity.</p>';
+ L.DomEvent.disableClickPropagation(el);
+ L.DomEvent.disableScrollPropagation(el);
+ return el;
+};
+hs2HotspotLegendControl.addTo(map);
+function updateHs2HotspotLegend(){
+ const el=document.getElementById('hs2FloatingHotspotLegend');
+ if(!el)return;
+ const enabled=document.getElementById('showHotspotLegend');
+ const layer=document.getElementById('showIncidentAreas');
+ const style=document.getElementById('incidentStyle');
+ const show=!!(enabled?.checked&&layer?.checked&&style?.value==='heatmap');
+ el.hidden=!show;
+ el.setAttribute('aria-hidden',String(!show));
+ const both=document.getElementById('incidentDataset')?.value==='both';
+ el.classList.toggle('hs2-combined-legend',both);
+ el.querySelector('strong').textContent=both?'Combined property hotspots':'Hotspot density';
+ el.querySelector('.hs2-density-labels').innerHTML=both?'<span>Red: reported damage</span><span>Blue: unaffected</span>':'<span>Lower</span><span>Higher</span>';
+ el.querySelector('p').textContent=both?'Purple indicates overlapping concentrations. Colours do not indicate damage severity or HS2 causation.':'Concentration of recorded properties, not damage severity.';
+}
+['showHotspotLegend','showIncidentAreas','incidentStyle','incidentDataset'].forEach(id=>
+ document.getElementById(id)?.addEventListener('change',updateHs2HotspotLegend));
+updateHs2HotspotLegend();
+
 
 // Home control: return to the map's original Queen's Park view.
 const HS2_HOME_CENTER=[51.5340,-0.2050];
@@ -508,6 +540,7 @@ map.getPane('incidentAreasPane').style.zIndex='590';
 map.getPane('incidentAreasPane').style.pointerEvents='none';
 const incidentAreaLayer=L.layerGroup().addTo(map);
 let incidentHeatLayer=null;
+let combinedIncidentLayers=[];
 // Continuous screen-space Gaussian kernels; no grid binning or square-cell boundaries.
 const SmoothIncidentDensity=L.Layer.extend({
  initialize(samples,options){this.samples=samples;this.options=options;},
@@ -545,16 +578,26 @@ const SmoothIncidentDensity=L.Layer.extend({
   }
   const data=ctx.getImageData(0,0,w,h),pixels=data.data;
   const stops=[[0.05,[49,70,184]],[0.20,[0,184,228]],[0.38,[58,212,107]],[0.58,[245,237,67]],[0.78,[255,147,39]],[1,[215,25,28]]];
+  const palette=this.options.palette;
+  // In combined mode, red and blue layers retain their own identity.
+  // Alpha increases with density, while overlap remains visibly purple.
+
   for(let i=0;i<pixels.length;i+=4){
    const density=pixels[i+3]/255;
    if(density<0.035){pixels[i+3]=0;continue;}
    const t=Math.min(1,density/0.75);
    let j=1;while(j<stops.length-1&&t>stops[j][0])j++;
    const [a,ca]=stops[j-1],[b,cb]=stops[j],f=Math.max(0,Math.min(1,(t-a)/(b-a)));
-   pixels[i]=ca[0]+(cb[0]-ca[0])*f;
-   pixels[i+1]=ca[1]+(cb[1]-ca[1])*f;
-   pixels[i+2]=ca[2]+(cb[2]-ca[2])*f;
-   pixels[i+3]=Math.round(255*this.options.opacity*Math.min(1,(density-0.035)/0.12));
+   if(palette==='damage'||palette==='unaffected'){
+    const col=palette==='damage'?[216,52,49]:[28,114,210];
+    pixels[i]=col[0];pixels[i+1]=col[1];pixels[i+2]=col[2];
+    pixels[i+3]=Math.round(255*this.options.opacity*Math.min(1,(density-0.035)/0.50));
+   }else{
+    pixels[i]=ca[0]+(cb[0]-ca[0])*f;
+    pixels[i+1]=ca[1]+(cb[1]-ca[1])*f;
+    pixels[i+2]=ca[2]+(cb[2]-ca[2])*f;
+    pixels[i+3]=Math.round(255*this.options.opacity*Math.min(1,(density-0.035)/0.12));
+   }
   }
   ctx.globalCompositeOperation='source-over';ctx.putImageData(data,0,0);
  }
@@ -600,6 +643,7 @@ function unaffectedIncident(p){
 function refreshIncidentAreas(){
  incidentAreaLayer.clearLayers();
  if(incidentHeatLayer){map.removeLayer(incidentHeatLayer);incidentHeatLayer=null;}
+ combinedIncidentLayers.forEach(layer=>map.removeLayer(layer));combinedIncidentLayers=[];
  const toggle=document.getElementById('showIncidentAreas');
  const note=document.getElementById('incidentAreaStatus');
  if(!toggle||!toggle.checked){if(note)note.textContent='Layer switched off.';return;}
@@ -607,6 +651,28 @@ function refreshIncidentAreas(){
  const opacity=Number(document.getElementById('incidentOpacity')?.value||55)/100;
  const mode=document.getElementById('incidentStyle')?.value||'heatmap';
  const dataset=document.getElementById('incidentDataset')?.value||'damage';
+ if(dataset==='both'){
+  const affected=properties.filter(reportedIncident);
+  const unaffectedProperties=properties.filter(unaffectedIncident);
+  if(mode==='heatmap'){
+   // Render the two distributions independently, with the same geographical radius.
+   // Use slightly restrained alpha to keep overlapping areas readable.
+   for(const [group,palette] of [[affected,'damage'],[unaffectedProperties,'unaffected']]){
+    if(group.length)combinedIncidentLayers.push(new SmoothIncidentDensity(
+     group.map(p=>[+p.latitude,+p.longitude]),
+     {radiusMeters:radius,opacity:Math.min(0.75,opacity),palette}
+    ).addTo(map));
+   }
+   if(note)note.textContent=`Combined hotspots: ${affected.length} reported-damage and ${unaffectedProperties.length} unaffected properties. Red = damage; blue = unaffected; purple = overlap. Concentration, not risk or causation.`;
+   updateHs2HotspotLegend();
+   return;
+  }
+  // Defined-area mode is not suitable for two overlapping datasets;
+  // keep the single-dataset area rendering and explain the limitation.
+  if(note)note.textContent='Combined display uses the hotspot density heatmap. Select that display style to view both groups.';
+  updateHs2HotspotLegend();
+  return;
+ }
  const unaffected=dataset==='unaffected';
  const points=properties.filter(unaffected?unaffectedIncident:reportedIncident);
  const subject=unaffected?'explicitly unaffected properties':'properties with reported damage';
@@ -645,7 +711,7 @@ function refreshIncidentAreas(){
  if(note)note.textContent=`${points.length} ${subject}. Outlined areas group nearby properties; boundaries are illustrative.`;
 }
 for(const id of ['showIncidentAreas','incidentRadius','incidentOpacity','incidentStyle','incidentDataset']){
- document.getElementById(id)?.addEventListener('input',refreshIncidentAreas);
+ document.getElementById(id)?.addEventListener('input',()=>{refreshIncidentAreas();updateHs2HotspotLegend();});
 }
 map.on('zoomend',()=>{if(document.getElementById('showIncidentAreas')?.checked&&document.getElementById('incidentStyle')?.value==='heatmap')refreshIncidentAreas();});
 function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}${!String(p.damage||'').trim()||/^(no damage|none|nil|no damage recorded|no visible damage|non-affected|non affected|unaffected)[.!\s]*$/i.test(String(p.damage).trim())?' no-damage':''}" aria-label="${esc(p.address)}"></span>`,iconSize:[12,12],iconAnchor:[6,6]})}

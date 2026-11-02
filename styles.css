@@ -179,3 +179,17 @@ body:has(#propertyAnalysis[open]) main{height:65vh;min-height:500px;}
 .hs2-floating-hotspot-legend p{margin:7px 0 0;color:#526477;font-size:11px;line-height:1.3;}
 .hs2-legend-toggle{font-size:12px;}
 @media(max-width:760px){.hs2-floating-hotspot-legend{width:190px;right:8px;bottom:22px;padding:8px;}}
+
+/* Floating legend is now a native Leaflet control, not an absolute child of the map. */
+.leaflet-control.hs2-floating-hotspot-legend{
+ position:relative;right:auto;bottom:auto;z-index:auto;
+ width:220px;max-width:calc(100vw - 45px);
+ margin:0 12px 28px 0;pointer-events:auto;
+}
+.leaflet-control.hs2-floating-hotspot-legend[hidden]{display:none!important;}
+@media(max-width:760px){.leaflet-control.hs2-floating-hotspot-legend{width:190px;margin:0 8px 22px 0;}}
+
+/* Combined red/blue density map legend: purple denotes overlapping records. */
+.hs2-floating-hotspot-legend.hs2-combined-legend{width:260px;max-width:calc(100vw - 40px)}
+.hs2-combined-legend .hs2-density-gradient{background:linear-gradient(90deg,#d83431 0%,#a04d91 50%,#1c72d2 100%)}
+.hs2-combined-legend .hs2-density-labels{font-size:10px;font-weight:650}
