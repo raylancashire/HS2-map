@@ -564,6 +564,9 @@ function reportedIncident(p){
  const damage=String(p.damage||'').trim();
  return isPropertyIncluded(p)&&isLocalCoordinate(p.latitude,p.longitude)&&!!damage&&!isUnaffected(p);
 }
+function unaffectedIncident(p){
+ return isPropertyIncluded(p)&&isLocalCoordinate(p.latitude,p.longitude)&&isUnaffected(p);
+}
 function refreshIncidentAreas(){
  incidentAreaLayer.clearLayers();
  if(incidentHeatLayer){map.removeLayer(incidentHeatLayer);incidentHeatLayer=null;}
@@ -573,13 +576,16 @@ function refreshIncidentAreas(){
  const radius=Number(document.getElementById('incidentRadius')?.value||75);
  const opacity=Number(document.getElementById('incidentOpacity')?.value||55)/100;
  const mode=document.getElementById('incidentStyle')?.value||'heatmap';
- const points=properties.filter(reportedIncident);
- if(!points.length){if(note)note.textContent='No qualifying damage records with usable coordinates were found.';return;}
+ const dataset=document.getElementById('incidentDataset')?.value||'damage';
+ const unaffected=dataset==='unaffected';
+ const points=properties.filter(unaffected?unaffectedIncident:reportedIncident);
+ const subject=unaffected?'explicitly unaffected properties':'properties with reported damage';
+ if(!points.length){if(note)note.textContent=`No mapped ${subject} found. Blank Damage cells are not treated as unaffected.`;return;}
  if(mode==='heatmap'){
   // Draw a continuous density field instead of Leaflet.heat's cell-aggregated grid.
   const samples=points.map(p=>[Number(p.latitude),Number(p.longitude)]);
   incidentHeatLayer=new SmoothIncidentDensity(samples,{radiusMeters:radius,opacity}).addTo(map);
-  if(note)note.textContent=`Smooth density from ${points.length} mapped damage reports. Colour indicates report concentration, not damage severity or HS2 causation.`;
+  if(note)note.textContent=`Smooth density from ${points.length} ${subject}. Colour shows concentration of records, not damage severity or HS2 causation.`;
   return;
  }
  const coords=points.map(p=>L.latLng(+p.latitude,+p.longitude));
@@ -606,9 +612,9 @@ function refreshIncidentAreas(){
    if(buffered)L.geoJSON(buffered,{pane:'incidentAreasPane',interactive:false,style:{color:outline,weight:2,opacity:0.95,fillColor:fill,fillOpacity:Math.max(0.18,Math.min(0.72,opacity))}}).addTo(incidentAreaLayer);
   }catch(err){console.warn('Could not draw incident area',err);}
  });
- if(note)note.textContent=`${points.length} mapped damage reports. Outlined areas group nearby reports; boundaries are illustrative.`;
+ if(note)note.textContent=`${points.length} ${subject}. Outlined areas group nearby properties; boundaries are illustrative.`;
 }
-for(const id of ['showIncidentAreas','incidentRadius','incidentOpacity','incidentStyle']){
+for(const id of ['showIncidentAreas','incidentRadius','incidentOpacity','incidentStyle','incidentDataset']){
  document.getElementById(id)?.addEventListener('input',refreshIncidentAreas);
 }
 map.on('zoomend',()=>{if(document.getElementById('showIncidentAreas')?.checked&&document.getElementById('incidentStyle')?.value==='heatmap')refreshIncidentAreas();});
