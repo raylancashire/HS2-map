@@ -178,7 +178,7 @@ function updateHs2HotspotLegend(){
  el.classList.toggle('hs2-combined-legend',both);
  el.querySelector('strong').textContent=both?'Combined property hotspots':'Hotspot density';
  el.querySelector('.hs2-density-labels').innerHTML=both?'<span>Red: reported damage</span><span>Blue: unaffected</span>':'<span>Lower</span><span>Higher</span>';
- el.querySelector('p').textContent=both?'Purple indicates overlapping concentrations. Colours do not indicate damage severity or HS2 causation.':'Concentration of recorded properties, not damage severity.';
+ el.querySelector('p').textContent=both?'Green indicates overlapping concentrations. Colours do not indicate damage severity or HS2 causation.':'Concentration of recorded properties, not damage severity.';
 }
 ['showHotspotLegend','showIncidentAreas','incidentStyle','incidentDataset'].forEach(id=>
  document.getElementById(id)?.addEventListener('change',updateHs2HotspotLegend));
@@ -580,7 +580,7 @@ const SmoothIncidentDensity=L.Layer.extend({
   const stops=[[0.05,[49,70,184]],[0.20,[0,184,228]],[0.38,[58,212,107]],[0.58,[245,237,67]],[0.78,[255,147,39]],[1,[215,25,28]]];
   const palette=this.options.palette;
   // In combined mode, red and blue layers retain their own identity.
-  // Alpha increases with density, while overlap remains visibly purple.
+  // Alpha increases with density, while overlap is calculated as green.
 
   for(let i=0;i<pixels.length;i+=4){
    const density=pixels[i+3]/255;
@@ -603,6 +603,60 @@ const SmoothIncidentDensity=L.Layer.extend({
  }
 });
 
+// Combined heatmap: calculate both density fields separately and colour their intersection green.
+// Unlike CSS blending red and blue, this produces a real green overlap without recolouring either dataset.
+const CombinedIncidentDensity=SmoothIncidentDensity.extend({
+ initialize(affected,unaffected,options){
+  this.affected=affected;this.unaffected=unaffected;
+  this.samples=affected.concat(unaffected);this.options=options;
+ },
+ _draw(){
+  const map=this._map,sz=map.getSize(),scale=0.5;
+  if(!sz.x||!sz.y||!this.samples.length)return;
+  const w=Math.ceil(sz.x*scale),h=Math.ceil(sz.y*scale),canvas=this._canvas;
+  canvas.width=w;canvas.height=h;
+  canvas.style.width=sz.x+'px';canvas.style.height=sz.y+'px';
+  L.DomUtil.setPosition(canvas,map.containerPointToLayerPoint([0,0]));
+  const latitude=this.samples.reduce((n,p)=>n+p[0],0)/this.samples.length;
+  const metersPerPixel=40075016.686*Math.cos(latitude*Math.PI/180)/(256*Math.pow(2,map.getZoom()));
+  const radius=Math.max(8,Math.min(230,this.options.radiusMeters/metersPerPixel))*scale;
+  function density(samples){
+   const c=document.createElement('canvas');c.width=w;c.height=h;
+   const ctx=c.getContext('2d',{willReadFrequently:true});
+   ctx.globalCompositeOperation='lighter';
+   for(const [lat,lng] of samples){
+    const p=map.latLngToContainerPoint([lat,lng]),x=p.x*scale,y=p.y*scale;
+    if(x < -radius||x>w+radius||y < -radius||y>h+radius)continue;
+    const g=ctx.createRadialGradient(x,y,0,x,y,radius);
+    g.addColorStop(0,'rgba(255,255,255,0.22)');
+    g.addColorStop(0.25,'rgba(255,255,255,0.16)');
+    g.addColorStop(0.55,'rgba(255,255,255,0.08)');
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=g;ctx.fillRect(x-radius,y-radius,radius*2,radius*2);
+   }
+   return ctx.getImageData(0,0,w,h).data;
+  }
+  const red=density(this.affected),blue=density(this.unaffected);
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  const image=ctx.createImageData(w,h),px=image.data;
+  for(let i=0;i<px.length;i+=4){
+   const r=Math.min(1,Math.max(0,(red[i+3]/255-0.035)/0.50));
+   const b=Math.min(1,Math.max(0,(blue[i+3]/255-0.035)/0.50));
+   if(!r&&!b)continue;
+   // Overlap intensity increases smoothly where both distributions are present.
+   const overlap=Math.min(r,b);
+   const total=Math.max(r,b);
+   const mix=overlap/(total||1);
+   const base=r>=b?[216,52,49]:[28,114,210];
+   const green=[40,166,89];
+   px[i]=Math.round(base[0]*(1-mix)+green[0]*mix);
+   px[i+1]=Math.round(base[1]*(1-mix)+green[1]*mix);
+   px[i+2]=Math.round(base[2]*(1-mix)+green[2]*mix);
+   px[i+3]=Math.round(255*this.options.opacity*total);
+  }
+  ctx.putImageData(image,0,0);
+ }
+});
 // Synchronized comparison of reported damage and explicitly unaffected properties.
 let comparisonMaps=null,comparisonLayers=[],comparisonSyncing=false;
 function ensureComparisonMaps(){
@@ -655,15 +709,15 @@ function refreshIncidentAreas(){
   const affected=properties.filter(reportedIncident);
   const unaffectedProperties=properties.filter(unaffectedIncident);
   if(mode==='heatmap'){
-   // Render the two distributions independently, with the same geographical radius.
-   // Use slightly restrained alpha to keep overlapping areas readable.
-   for(const [group,palette] of [[affected,'damage'],[unaffectedProperties,'unaffected']]){
-    if(group.length)combinedIncidentLayers.push(new SmoothIncidentDensity(
-     group.map(p=>[+p.latitude,+p.longitude]),
-     {radiusMeters:radius,opacity:Math.min(0.75,opacity),palette}
+   // A single composited layer ensures the overlap is green, not purple.
+   if(affected.length||unaffectedProperties.length){
+    combinedIncidentLayers.push(new CombinedIncidentDensity(
+     affected.map(p=>[+p.latitude,+p.longitude]),
+     unaffectedProperties.map(p=>[+p.latitude,+p.longitude]),
+     {radiusMeters:radius,opacity:Math.min(0.75,opacity)}
     ).addTo(map));
    }
-   if(note)note.textContent=`Combined hotspots: ${affected.length} reported-damage and ${unaffectedProperties.length} unaffected properties. Red = damage; blue = unaffected; purple = overlap. Concentration, not risk or causation.`;
+   if(note)note.textContent=`Combined hotspots: ${affected.length} reported-damage and ${unaffectedProperties.length} unaffected properties. Red = damage; blue = unaffected; green = overlap. Concentration, not risk or causation.`;
    updateHs2HotspotLegend();
    return;
   }

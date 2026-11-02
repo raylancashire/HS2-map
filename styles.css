@@ -189,7 +189,7 @@ body:has(#propertyAnalysis[open]) main{height:65vh;min-height:500px;}
 .leaflet-control.hs2-floating-hotspot-legend[hidden]{display:none!important;}
 @media(max-width:760px){.leaflet-control.hs2-floating-hotspot-legend{width:190px;margin:0 8px 22px 0;}}
 
-/* Combined red/blue density map legend: purple denotes overlapping records. */
+/* Combined red/blue density map legend: green denotes overlapping records. */
 .hs2-floating-hotspot-legend.hs2-combined-legend{width:260px;max-width:calc(100vw - 40px)}
-.hs2-combined-legend .hs2-density-gradient{background:linear-gradient(90deg,#d83431 0%,#a04d91 50%,#1c72d2 100%)}
+.hs2-combined-legend .hs2-density-gradient{background:linear-gradient(90deg,#d83431 0%,#28a659 50%,#1c72d2 100%)}
 .hs2-combined-legend .hs2-density-labels{font-size:10px;font-weight:650}
