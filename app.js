@@ -560,6 +560,36 @@ const SmoothIncidentDensity=L.Layer.extend({
  }
 });
 
+// Synchronized comparison of reported damage and explicitly unaffected properties.
+let comparisonMaps=null,comparisonLayers=[],comparisonSyncing=false;
+function ensureComparisonMaps(){
+ if(comparisonMaps)return;
+ const create=id=>{
+  const m=L.map(id,{zoomControl:true,scrollWheelZoom:false}).setView(map.getCenter(),map.getZoom());
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(m);
+  m.createPane('incidentAreasPane');m.getPane('incidentAreasPane').style.zIndex='590';
+  m.getPane('incidentAreasPane').style.pointerEvents='none';return m;
+ };
+ comparisonMaps=[create('compareDamageMap'),create('compareUnaffectedMap')];
+ comparisonMaps.forEach((m,i)=>m.on('moveend',()=>{
+  if(comparisonSyncing)return;
+  comparisonSyncing=true;comparisonMaps[1-i].setView(m.getCenter(),m.getZoom(),{animate:false});comparisonSyncing=false;
+ }));
+}
+function refreshHotspotComparison(){
+ if(!document.getElementById('hotspotComparison')?.open)return;
+ ensureComparisonMaps();comparisonMaps.forEach(m=>m.invalidateSize());
+ const radius=Number(document.getElementById('incidentRadius')?.value||75);
+ const opacity=Number(document.getElementById('incidentOpacity')?.value||55)/100;
+ const groups=[properties.filter(reportedIncident),properties.filter(unaffectedIncident)];
+ comparisonLayers.forEach((layer,i)=>{if(layer)comparisonMaps[i].removeLayer(layer)});
+ comparisonLayers=groups.map((group,i)=>{
+  document.getElementById(i?'compareUnaffectedCount':'compareDamageCount').textContent=`(${group.length})`;
+  return group.length?new SmoothIncidentDensity(group.map(p=>[+p.latitude,+p.longitude]),{radiusMeters:radius,opacity}).addTo(comparisonMaps[i]):null;
+ });
+}
+document.getElementById('hotspotComparison')?.addEventListener('toggle',refreshHotspotComparison);
+for(const id of ['incidentRadius','incidentOpacity'])document.getElementById(id)?.addEventListener('input',refreshHotspotComparison);
 function reportedIncident(p){
  const damage=String(p.damage||'').trim();
  return isPropertyIncluded(p)&&isLocalCoordinate(p.latitude,p.longitude)&&!!damage&&!isUnaffected(p);
@@ -621,6 +651,7 @@ map.on('zoomend',()=>{if(document.getElementById('showIncidentAreas')?.checked&&
 function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}${!String(p.damage||'').trim()||/^(no damage|none|nil|no damage recorded|no visible damage|non-affected|non affected|unaffected)[.!\s]*$/i.test(String(p.damage).trim())?' no-damage':''}" aria-label="${esc(p.address)}"></span>`,iconSize:[12,12],iconAnchor:[6,6]})}
 let displayedMarkerProperties=[];
 function render(skipList=false){
+ refreshHotspotComparison();
  displayedMarkerProperties=[];
  measurementLayer.clearLayers();markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;
  let visible=0;

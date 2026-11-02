@@ -154,4 +154,10 @@ body:has(#propertyAnalysis[open]) main{height:65vh;min-height:500px;}
 .incident-legend span{display:inline-flex;align-items:center;gap:4px}
 .incident-legend i{display:inline-block;width:12px;height:12px;border-radius:50%}
 .incident-layer-controls:has(#showIncidentAreas:not(:checked)) .incident-options{display:none}
-\n/* Heatmap canvas stays below markers and cannot intercept map clicks. */\n.leaflet-incidentAreasPane canvas{pointer-events:none!important;}\n\n/* Aggregate-only claims overview; responsive with the existing analysis dashboard. */\n#analysisClaims .claims-stats{margin:10px 0 16px;}\n#analysisClaims h3{font-size:14px;color:#12345b;margin:10px 0;}\n
+\n/* Heatmap canvas stays below markers and cannot intercept map clicks. */\n.leaflet-incidentAreasPane canvas{pointer-events:none!important;}\n
+/* Synchronized hotspot comparison */
+.hotspot-compare-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.hotspot-compare-grid>section{min-width:0;border:1px solid #dbe3ec;border-radius:8px;padding:12px}
+.hotspot-compare-grid h2 span{font-weight:400;color:#536678}
+.compare-map{height:380px;min-height:280px;border-radius:6px;overflow:hidden}
+@media(max-width:850px){.hotspot-compare-grid{grid-template-columns:1fr}.compare-map{height:340px}}
