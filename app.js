@@ -628,9 +628,9 @@ const CombinedIncidentDensity=SmoothIncidentDensity.extend({
     const p=map.latLngToContainerPoint([lat,lng]),x=p.x*scale,y=p.y*scale;
     if(x < -radius||x>w+radius||y < -radius||y>h+radius)continue;
     const g=ctx.createRadialGradient(x,y,0,x,y,radius);
-    g.addColorStop(0,'rgba(255,255,255,0.22)');
-    g.addColorStop(0.25,'rgba(255,255,255,0.16)');
-    g.addColorStop(0.55,'rgba(255,255,255,0.08)');
+    g.addColorStop(0,'rgba(255,255,255,0.32)');
+    g.addColorStop(0.25,'rgba(255,255,255,0.21)');
+    g.addColorStop(0.55,'rgba(255,255,255,0.085)');
     g.addColorStop(1,'rgba(255,255,255,0)');
     ctx.fillStyle=g;ctx.fillRect(x-radius,y-radius,radius*2,radius*2);
    }
@@ -640,19 +640,21 @@ const CombinedIncidentDensity=SmoothIncidentDensity.extend({
   const ctx=canvas.getContext('2d',{willReadFrequently:true});
   const image=ctx.createImageData(w,h),px=image.data;
   for(let i=0;i<px.length;i+=4){
-   const r=Math.min(1,Math.max(0,(red[i+3]/255-0.035)/0.50));
-   const b=Math.min(1,Math.max(0,(blue[i+3]/255-0.035)/0.50));
+   // A gentle floor retains a visible halo around isolated records.
+   const r=Math.min(1,Math.max(0,(red[i+3]/255-0.012)/0.42));
+   const b=Math.min(1,Math.max(0,(blue[i+3]/255-0.012)/0.42));
    if(!r&&!b)continue;
    // Overlap intensity increases smoothly where both distributions are present.
    const overlap=Math.min(r,b);
    const total=Math.max(r,b);
-   const mix=overlap/(total||1);
+   // Stronger green in areas with meaningful concentrations from both groups.
+   const mix=(r>0.11&&b>0.11)?Math.min(1,1.65*overlap/(total||1)):0;
    const base=r>=b?[216,52,49]:[28,114,210];
    const green=[40,166,89];
    px[i]=Math.round(base[0]*(1-mix)+green[0]*mix);
    px[i+1]=Math.round(base[1]*(1-mix)+green[1]*mix);
    px[i+2]=Math.round(base[2]*(1-mix)+green[2]*mix);
-   px[i+3]=Math.round(255*this.options.opacity*total);
+   px[i+3]=Math.round(255*this.options.opacity*Math.min(1,Math.max(0.14,total)));
   }
   ctx.putImageData(image,0,0);
  }
