@@ -628,9 +628,9 @@ const CombinedIncidentDensity=SmoothIncidentDensity.extend({
     const p=map.latLngToContainerPoint([lat,lng]),x=p.x*scale,y=p.y*scale;
     if(x < -radius||x>w+radius||y < -radius||y>h+radius)continue;
     const g=ctx.createRadialGradient(x,y,0,x,y,radius);
-    g.addColorStop(0,'rgba(255,255,255,0.32)');
-    g.addColorStop(0.25,'rgba(255,255,255,0.21)');
-    g.addColorStop(0.55,'rgba(255,255,255,0.085)');
+    g.addColorStop(0,'rgba(255,255,255,0.22)');
+    g.addColorStop(0.25,'rgba(255,255,255,0.16)');
+    g.addColorStop(0.55,'rgba(255,255,255,0.08)');
     g.addColorStop(1,'rgba(255,255,255,0)');
     ctx.fillStyle=g;ctx.fillRect(x-radius,y-radius,radius*2,radius*2);
    }
@@ -639,22 +639,25 @@ const CombinedIncidentDensity=SmoothIncidentDensity.extend({
   const red=density(this.affected),blue=density(this.unaffected);
   const ctx=canvas.getContext('2d',{willReadFrequently:true});
   const image=ctx.createImageData(w,h),px=image.data;
+  // Match the original individual heatmaps: no minimum halo or opacity floor.
+  // Both independent density fields use exactly the same kernel and threshold.
+  const threshold=0.035;
+  const fullStrength=0.50;
   for(let i=0;i<px.length;i+=4){
-   // A gentle floor retains a visible halo around isolated records.
-   const r=Math.min(1,Math.max(0,(red[i+3]/255-0.012)/0.42));
-   const b=Math.min(1,Math.max(0,(blue[i+3]/255-0.012)/0.42));
-   if(!r&&!b)continue;
-   // Overlap intensity increases smoothly where both distributions are present.
-   const overlap=Math.min(r,b);
-   const total=Math.max(r,b);
-   // Stronger green in areas with meaningful concentrations from both groups.
-   const mix=(r>0.11&&b>0.11)?Math.min(1,1.65*overlap/(total||1)):0;
+   const rawR=red[i+3]/255,rawB=blue[i+3]/255;
+   const r=Math.min(1,Math.max(0,(rawR-threshold)/fullStrength));
+   const b=Math.min(1,Math.max(0,(rawB-threshold)/fullStrength));
+   const peak=Math.max(r,b);
+   if(peak<=0)continue;
+   // Green is reserved for genuine overlapping concentrations, not faint edges.
+   const overlap=(r>=0.16&&b>=0.16)?Math.min(1,Math.min(r,b)/Math.max(r,b)):0;
+   const mix=overlap>0?Math.min(1,overlap*1.25):0;
    const base=r>=b?[216,52,49]:[28,114,210];
    const green=[40,166,89];
    px[i]=Math.round(base[0]*(1-mix)+green[0]*mix);
    px[i+1]=Math.round(base[1]*(1-mix)+green[1]*mix);
    px[i+2]=Math.round(base[2]*(1-mix)+green[2]*mix);
-   px[i+3]=Math.round(255*this.options.opacity*Math.min(1,Math.max(0.14,total)));
+   px[i+3]=Math.round(255*this.options.opacity*peak);
   }
   ctx.putImageData(image,0,0);
  }
@@ -716,7 +719,7 @@ function refreshIncidentAreas(){
     combinedIncidentLayers.push(new CombinedIncidentDensity(
      affected.map(p=>[+p.latitude,+p.longitude]),
      unaffectedProperties.map(p=>[+p.latitude,+p.longitude]),
-     {radiusMeters:radius,opacity:Math.min(0.75,opacity)}
+     {radiusMeters:radius,opacity}
     ).addTo(map));
    }
    if(note)note.textContent=`Combined hotspots: ${affected.length} reported-damage and ${unaffectedProperties.length} unaffected properties. Red = damage; blue = unaffected; green = overlap. Concentration, not risk or causation.`;
