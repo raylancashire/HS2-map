@@ -174,11 +174,12 @@ function updateHs2HotspotLegend(){
  const show=!!(enabled?.checked&&layer?.checked&&style?.value==='heatmap');
  el.hidden=!show;
  el.setAttribute('aria-hidden',String(!show));
+ const layered=document.getElementById('incidentDataset')?.value==='layered';
  const both=document.getElementById('incidentDataset')?.value==='both';
- el.classList.toggle('hs2-combined-legend',both);
- el.querySelector('strong').textContent=both?'Combined property hotspots':'Hotspot density';
- el.querySelector('.hs2-density-labels').innerHTML=both?'<span>Red: reported damage</span><span>Blue: unaffected</span>':'<span>Lower</span><span>Higher</span>';
- el.querySelector('p').textContent=both?'Green indicates overlapping concentrations. Colours do not indicate damage severity or HS2 causation.':'Concentration of recorded properties, not damage severity.';
+ el.classList.toggle('hs2-combined-legend',both||layered);
+ el.querySelector('strong').textContent=layered?'Layered property hotspots':both?'Combined property hotspots':'Hotspot density';
+ el.querySelector('.hs2-density-labels').innerHTML=layered?'<span>Below: reported damage</span><span>Above: unaffected</span>':both?'<span>Red: reported damage</span><span>Blue: unaffected</span>':'<span>Lower</span><span>Higher</span>';
+ el.querySelector('p').textContent=layered?'Both layers use the original density colours. Transparency may mix colours; this does not establish causation.':both?'Green indicates overlapping concentrations. Colours do not indicate damage severity or HS2 causation.':'Concentration of recorded properties, not damage severity.';
 }
 ['showHotspotLegend','showIncidentAreas','incidentStyle','incidentDataset'].forEach(id=>
  document.getElementById(id)?.addEventListener('change',updateHs2HotspotLegend));
@@ -541,6 +542,30 @@ map.getPane('incidentAreasPane').style.pointerEvents='none';
 const incidentAreaLayer=L.layerGroup().addTo(map);
 let incidentHeatLayer=null;
 let combinedIncidentLayers=[];
+// Layered comparison uses two original density heatmaps, with independent opacity.
+const hs2DatasetSelect=document.getElementById('incidentDataset');
+if(hs2DatasetSelect&&!hs2DatasetSelect.querySelector('option[value="layered"]')){
+ const option=document.createElement('option');option.value='layered';
+ option.textContent='Layered comparison — damage + unaffected';hs2DatasetSelect.appendChild(option);
+}
+const hs2OpacityControl=document.getElementById('incidentOpacity');
+if(hs2OpacityControl&&!document.getElementById('hs2UnaffectedOpacity')){
+ const label=document.createElement('label');label.id='hs2UnaffectedOpacityControl';
+ label.textContent='Unaffected overlay opacity ';
+ const slider=document.createElement('input');slider.id='hs2UnaffectedOpacity';
+ slider.type='range';slider.min='10';slider.max='90';slider.step='5';slider.value='45';
+ const output=document.createElement('output');output.textContent='45%';
+ label.append(slider,output);
+ hs2OpacityControl.closest('label')?.insertAdjacentElement('afterend',label);
+ slider.addEventListener('input',()=>{output.textContent=slider.value+'%';refreshIncidentAreas();});
+}
+function updateHs2LayeredOpacityVisibility(){
+ const control=document.getElementById('hs2UnaffectedOpacityControl');
+ if(control)control.hidden=document.getElementById('incidentDataset')?.value!=='layered';
+}
+document.getElementById('incidentDataset')?.addEventListener('change',updateHs2LayeredOpacityVisibility);
+updateHs2LayeredOpacityVisibility();
+
 // Continuous screen-space Gaussian kernels; no grid binning or square-cell boundaries.
 const SmoothIncidentDensity=L.Layer.extend({
  initialize(samples,options){this.samples=samples;this.options=options;},
@@ -710,6 +735,27 @@ function refreshIncidentAreas(){
  const opacity=Number(document.getElementById('incidentOpacity')?.value||55)/100;
  const mode=document.getElementById('incidentStyle')?.value||'heatmap';
  const dataset=document.getElementById('incidentDataset')?.value||'damage';
+ if(dataset==='layered'){
+  if(mode!=='heatmap'){
+   if(note)note.textContent='Layered comparison requires the hotspot density heatmap display style.';
+   updateHs2HotspotLegend();return;
+  }
+  const affected=properties.filter(reportedIncident);
+  const unaffectedProperties=properties.filter(unaffectedIncident);
+  // Draw in order: original affected heatmap underneath original unaffected heatmap.
+  if(affected.length)combinedIncidentLayers.push(new SmoothIncidentDensity(
+   affected.map(p=>[+p.latitude,+p.longitude]),{radiusMeters:radius,opacity}
+  ).addTo(map));
+  if(unaffectedProperties.length){
+   const upperOpacity=Number(document.getElementById('hs2UnaffectedOpacity')?.value||45)/100;
+   combinedIncidentLayers.push(new SmoothIncidentDensity(
+    unaffectedProperties.map(p=>[+p.latitude,+p.longitude]),
+    {radiusMeters:radius,opacity:upperOpacity}
+   ).addTo(map));
+  }
+  if(note)note.textContent=`Layered hotspots: ${affected.length} reported-damage properties underneath ${unaffectedProperties.length} explicitly unaffected properties. Both use original density colours; transparency can mix colours.`;
+  updateHs2HotspotLegend();return;
+ }
  if(dataset==='both'){
   const affected=properties.filter(reportedIncident);
   const unaffectedProperties=properties.filter(unaffectedIncident);
