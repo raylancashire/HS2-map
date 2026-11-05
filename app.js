@@ -176,10 +176,27 @@ function updateHs2HotspotLegend(){
  el.setAttribute('aria-hidden',String(!show));
  const layered=document.getElementById('incidentDataset')?.value==='layered';
  const both=document.getElementById('incidentDataset')?.value==='both';
+ const unaffected=document.getElementById('incidentDataset')?.value==='unaffected';
+ el.setAttribute('aria-label',layered?'Layered comparison of affected and unaffected hotspot density':both?'Combined affected and unaffected hotspot density':unaffected?'Unaffected properties hotspot density':'Reported damage hotspot density');
  el.classList.toggle('hs2-combined-legend',both||layered);
- el.querySelector('strong').textContent=layered?'Layered property hotspots':both?'Combined property hotspots':'Hotspot density';
- el.querySelector('.hs2-density-labels').innerHTML=layered?'<span>Below: reported damage</span><span>Above: unaffected</span>':both?'<span>Red: reported damage</span><span>Blue: unaffected</span>':'<span>Lower</span><span>Higher</span>';
- el.querySelector('p').textContent=layered?'Both layers use the original density colours. Transparency may mix colours; this does not establish causation.':both?'Green indicates overlapping concentrations. Colours do not indicate damage severity or HS2 causation.':'Concentration of recorded properties, not damage severity.';
+ el.querySelector('strong').textContent=layered?'Layered Comparison — Affected & Unaffected':both?'Combined — Affected & Unaffected':unaffected?'Unaffected Properties — Hotspot Density':'Reported Damage — Hotspot Density';
+ // Keep the display-style selector and sidebar colour-scale title in sync too.
+ const heatmapOption=document.querySelector('#incidentStyle option[value="heatmap"]');
+ if(heatmapOption)heatmapOption.textContent=layered?'Hotspot density — layered affected & unaffected':both?'Hotspot density — combined affected & unaffected':unaffected?'Hotspot density — unaffected properties':'Hotspot density — reported damage';
+ const sidebarScale=document.querySelector('.hs2-density-scale');
+ if(sidebarScale){
+  let heading=sidebarScale.previousElementSibling;
+  if(!heading||!heading.classList.contains('hs2-density-scale-title')){
+   heading=document.createElement('div');
+   heading.className='hs2-density-scale-title';
+   heading.style.cssText='font-weight:600;margin:8px 0 4px';
+   sidebarScale.parentNode.insertBefore(heading,sidebarScale);
+  }
+  heading.textContent=layered?'Hotspot density — affected & unaffected':both?'Hotspot density — affected & unaffected':unaffected?'Hotspot density — unaffected':'Hotspot density — affected';
+ }
+
+ el.querySelector('.hs2-density-labels').innerHTML=layered?'<span>Lower layer: affected</span><span>Upper layer: unaffected</span>':both?'<span>Red: reported damage</span><span>Blue: unaffected</span>':'<span>Lower</span><span>Higher</span>';
+ el.querySelector('p').textContent=layered?'Both layers use the original density colours. Transparency may mix colours; this does not establish causation.':both?'Green indicates overlapping concentrations. Colours do not indicate damage severity or HS2 causation.':(unaffected?'Density of explicitly unaffected property records.':'Density of properties reporting damage.')+' Not damage severity or proof of HS2 causation.';
 }
 ['showHotspotLegend','showIncidentAreas','incidentStyle','incidentDataset'].forEach(id=>
  document.getElementById(id)?.addEventListener('change',updateHs2HotspotLegend));
