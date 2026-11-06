@@ -213,6 +213,7 @@ function updateHs2HotspotLegend(){
   el.querySelector('.hs2-density-gradient').insertAdjacentElement('beforebegin',layeredKeys);
  }
  if(layeredKeys)layeredKeys.hidden=!layered;
+ if(layeredKeys&&!layeredKeys.querySelector('.hs2-contour-key'))layeredKeys.insertAdjacentHTML('beforeend','<div class="hs2-contour-key" style="font-size:11px"><span style="color:#c52b35;font-weight:700">━━</span> Affected contour &nbsp; <span style="color:#74206e;font-weight:700">┄┄</span> Unaffected contour (when enabled)</div>');
  const singleGradient=el.querySelector('.hs2-density-gradient');
  if(singleGradient)singleGradient.style.display=layered?'none':'';
  if(singleGradient)singleGradient.style.background=unaffected?'linear-gradient(to right,#f9d5e9,#f39ac9,#e34da7,#b71b82,#85166f,#6b135e)':'';
@@ -597,9 +598,18 @@ if(hs2OpacityControl&&!document.getElementById('hs2UnaffectedOpacity')){
  hs2OpacityControl.closest('label')?.insertAdjacentElement('afterend',label);
  slider.addEventListener('input',()=>{output.textContent=slider.value+'%';refreshIncidentAreas();});
 }
+// Optional density contours for the layered comparison (not property boundaries).
+const hs2ContourControls=document.createElement('div');
+hs2ContourControls.id='hs2ContourControls';
+hs2ContourControls.style.cssText='margin:8px 0;display:grid;gap:5px';
+hs2ContourControls.innerHTML='<label style="display:flex;align-items:center;gap:7px"><input type="checkbox" id="hs2ShowContours" checked> Outline hotspots</label><label style="display:flex;align-items:center;gap:8px">Outline density threshold <input id="hs2ContourThreshold" type="range" min="15" max="80" step="5" value="35" style="flex:1;min-width:70px"><output id="hs2ContourThresholdValue">35%</output></label><small>Solid red: affected · dashed purple: unaffected. Density contours are not property or damage boundaries.</small>';
+(document.getElementById('hs2UnaffectedOpacityControl')||hs2OpacityControl?.parentElement||hs2DatasetSelect)?.insertAdjacentElement('afterend',hs2ContourControls);
+document.getElementById('hs2ShowContours')?.addEventListener('change',refreshIncidentAreas);
+document.getElementById('hs2ContourThreshold')?.addEventListener('input',e=>{document.getElementById('hs2ContourThresholdValue').textContent=e.target.value+'%';refreshIncidentAreas();});
 function updateHs2LayeredOpacityVisibility(){
  const control=document.getElementById('hs2UnaffectedOpacityControl');
  if(control)control.hidden=document.getElementById('incidentDataset')?.value!=='layered';
+ if(hs2ContourControls)hs2ContourControls.hidden=document.getElementById('incidentDataset')?.value!=='layered';
 }
 document.getElementById('incidentDataset')?.addEventListener('change',updateHs2LayeredOpacityVisibility);
 updateHs2LayeredOpacityVisibility();
@@ -669,6 +679,86 @@ const SmoothIncidentDensity=L.Layer.extend({
  }
 });
 
+// Draw mathematically derived density contours from the same Gaussian-like kernel
+// used by SmoothIncidentDensity. The contours are a visual threshold, NOT
+// boundaries of affected properties, subsidence, or HS2 impact.
+const HS2DensityContours=L.Layer.extend({
+ initialize(affected,unaffected,options){this.affected=affected;this.unaffected=unaffected;this.options=options;},
+ onAdd(map){
+  this._map=map;
+  this._canvas=L.DomUtil.create('canvas','hs2-density-contours',map.getPane('incidentAreasPane'));
+  this._canvas.style.cssText='position:absolute;pointer-events:none;';
+  map.on('moveend resize zoomend',this._draw,this);this._draw();
+ },
+ onRemove(map){map.off('moveend resize zoomend',this._draw,this);this._canvas.remove();},
+ _draw(){
+  const map=this._map,sz=map.getSize(),scale=0.5;
+  if(!sz.x||!sz.y)return;
+  const w=Math.ceil(sz.x*scale),h=Math.ceil(sz.y*scale),c=this._canvas;
+  c.width=w;c.height=h;c.style.width=sz.x+'px';c.style.height=sz.y+'px';
+  L.DomUtil.setPosition(c,map.containerPointToLayerPoint([0,0]));
+  const ctx=c.getContext('2d');
+  const all=this.affected.concat(this.unaffected);
+  if(!all.length)return;
+  const lat=all.reduce((a,p)=>a+p[0],0)/all.length;
+  const mpp=40075016.686*Math.cos(lat*Math.PI/180)/(256*Math.pow(2,map.getZoom()));
+  const radius=Math.max(8,Math.min(230,this.options.radiusMeters/mpp))*scale;
+  const threshold=0.75*this.options.threshold/100;
+  const gridStep=3; // half-resolution pixels: 6 screen pixels per contour cell
+  const cols=Math.ceil(w/gridStep)+1,rows=Math.ceil(h/gridStep)+1;
+  function field(samples){
+   const off=document.createElement('canvas');off.width=w;off.height=h;
+   const gctx=off.getContext('2d',{willReadFrequently:true});
+   gctx.globalCompositeOperation='lighter';
+   for(const [latitude,longitude] of samples){
+    const p=map.latLngToContainerPoint([latitude,longitude]);
+    const x=p.x*scale,y=p.y*scale;
+    if(x < -radius||x>w+radius||y < -radius||y>h+radius)continue;
+    const grad=gctx.createRadialGradient(x,y,0,x,y,radius);
+    grad.addColorStop(0,'rgba(255,255,255,0.22)');
+    grad.addColorStop(.25,'rgba(255,255,255,0.16)');
+    grad.addColorStop(.55,'rgba(255,255,255,0.08)');
+    grad.addColorStop(1,'rgba(255,255,255,0)');
+    gctx.fillStyle=grad;gctx.fillRect(x-radius,y-radius,radius*2,radius*2);
+   }
+   const alpha=gctx.getImageData(0,0,w,h).data;
+   const values=new Float32Array(cols*rows);
+   for(let gy=0;gy<rows;gy++)for(let gx=0;gx<cols;gx++){
+    const x=Math.min(w-1,gx*gridStep),y=Math.min(h-1,gy*gridStep);
+    values[gy*cols+gx]=alpha[(y*w+x)*4+3]/255;
+   }
+   return values;
+  }
+  // Marching squares; linear interpolation avoids blocky boundaries.
+  function draw(samples,colour,dashed){
+   if(!samples.length)return;
+   const v=field(samples);
+   ctx.beginPath();
+   const edge=(ax,ay,av,bx,by,bv)=>{
+    const t=Math.max(0,Math.min(1,(threshold-av)/((bv-av)||1e-9)));
+    return [ax+(bx-ax)*t,ay+(by-ay)*t];
+   };
+   for(let y=0;y<rows-1;y++)for(let x=0;x<cols-1;x++){
+    const i=y*cols+x;
+    const a=v[i],b=v[i+1],d=v[i+cols],e=v[i+cols+1];
+    const x0=x*gridStep,y0=y*gridStep,x1=(x+1)*gridStep,y1=(y+1)*gridStep;
+    const crosses=[];
+    if((a>=threshold)!==(b>=threshold))crosses.push(edge(x0,y0,a,x1,y0,b));
+    if((b>=threshold)!==(e>=threshold))crosses.push(edge(x1,y0,b,x1,y1,e));
+    if((e>=threshold)!==(d>=threshold))crosses.push(edge(x1,y1,e,x0,y1,d));
+    if((d>=threshold)!==(a>=threshold))crosses.push(edge(x0,y1,d,x0,y0,a));
+    for(let j=0;j+1<crosses.length;j+=2){
+     ctx.moveTo(...crosses[j]);ctx.lineTo(...crosses[j+1]);
+    }
+   }
+   ctx.strokeStyle=colour;ctx.lineWidth=2.4*scale;
+   ctx.setLineDash(dashed?[7*scale,5*scale]:[]);
+   ctx.lineJoin='round';ctx.stroke();ctx.setLineDash([]);
+  }
+  draw(this.affected,'#c52b35',false);
+  draw(this.unaffected,'#74206e',true);
+ }
+});
 // Combined heatmap: calculate both density fields separately and colour their intersection green.
 // Unlike CSS blending red and blue, this produces a real green overlap without recolouring either dataset.
 const CombinedIncidentDensity=SmoothIncidentDensity.extend({
@@ -794,7 +884,14 @@ function refreshIncidentAreas(){
     {radiusMeters:radius,opacity:upperOpacity,palette:'layered-unaffected'}
    ).addTo(map));
   }
-  if(note)note.textContent=`Layered hotspots: ${affected.length} reported-damage properties underneath ${unaffectedProperties.length} explicitly unaffected properties. Affected uses its original density colours; unaffected uses cyan-to-purple. Transparency can mix colours.`;
+  if(document.getElementById('hs2ShowContours')?.checked){
+   combinedIncidentLayers.push(new HS2DensityContours(
+    affected.map(p=>[+p.latitude,+p.longitude]),
+    unaffectedProperties.map(p=>[+p.latitude,+p.longitude]),
+    {radiusMeters:radius,threshold:Number(document.getElementById('hs2ContourThreshold')?.value||35)}
+   ).addTo(map));
+  }
+  if(note)note.textContent=`Layered hotspots: ${affected.length} reported-damage properties underneath ${unaffectedProperties.length} explicitly unaffected properties. Affected uses its original density colours; unaffected uses cyan-to-purple. Transparency can mix colours. Optional red solid and purple dashed lines show density thresholds, not damage boundaries.`;
   updateHs2HotspotLegend();return;
  }
  if(dataset==='both'){
