@@ -866,7 +866,7 @@ function refreshIncidentAreas(){
  const opacity=Number(document.getElementById('incidentOpacity')?.value||55)/100;
  const mode=document.getElementById('incidentStyle')?.value||'heatmap';
  const dataset=document.getElementById('incidentDataset')?.value||'damage';
- if(dataset==='layered'){
+ if(dataset==='layered'||(dataset==='both'&&mode==='areas')){
   const affected=properties.filter(reportedIncident);
   const unaffectedProperties=properties.filter(unaffectedIncident);
   if(mode==='areas'){
@@ -906,7 +906,7 @@ function refreshIncidentAreas(){
    };
    drawDefinedAreas(affected,'affected');
    drawDefinedAreas(unaffectedProperties,'unaffected');
-   if(note)note.textContent=`Defined incident areas: ${affected.length} reported-damage and ${unaffectedProperties.length} explicitly unaffected properties. Solid red outlines = affected; dashed purple outlines = unaffected. These are illustrative proximity clusters, not confirmed damage boundaries.`;
+   if(note)note.textContent=`Defined incident areas (${dataset==='both'?'Both — combined':'Layered comparison'}): ${affected.length} reported-damage and ${unaffectedProperties.length} explicitly unaffected properties. Solid red outlines = affected; dashed purple outlines = unaffected. These are illustrative proximity clusters, not confirmed damage boundaries.`;
    updateHs2HotspotLegend();return;
   }
   if(mode!=='heatmap'){
@@ -950,9 +950,8 @@ function refreshIncidentAreas(){
    updateHs2HotspotLegend();
    return;
   }
-  // Defined-area mode is not suitable for two overlapping datasets;
-  // keep the single-dataset area rendering and explain the limitation.
-  if(note)note.textContent='Combined display uses the hotspot density heatmap. Select that display style to view both groups.';
+  // Other display modes are not defined for the combined dataset.
+  if(note)note.textContent='Choose Hotspot density or Defined incident area to view both groups.';
   updateHs2HotspotLegend();
   return;
  }
