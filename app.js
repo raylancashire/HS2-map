@@ -200,7 +200,7 @@ function updateHs2HotspotLegend(){
   }
   if(secondScale)secondScale.hidden=!layered;
   heading.textContent=layered?'Affected — density (lower layer)':both?'Hotspot density — affected & unaffected':unaffected?'Hotspot density — unaffected':'Hotspot density — affected';
-  sidebarScale.style.background=unaffected?'linear-gradient(to right,#f9d5e9,#f39ac9,#e34da7,#b71b82,#85166f,#6b135e)':'';
+  sidebarScale.style.background=''; // Standalone datasets share the original rainbow density key.
  }
 
  // In layered mode show two actual colour keys, one per dataset.
@@ -216,7 +216,7 @@ function updateHs2HotspotLegend(){
  if(layeredKeys&&!layeredKeys.querySelector('.hs2-contour-key'))layeredKeys.insertAdjacentHTML('beforeend','<div class="hs2-contour-key" style="font-size:11px"><span style="color:#c52b35;font-weight:700">━━</span> Affected contour &nbsp; <span style="color:#74206e;font-weight:700">┄┄</span> Unaffected contour (when enabled)</div>');
  const singleGradient=el.querySelector('.hs2-density-gradient');
  if(singleGradient)singleGradient.style.display=layered?'none':'';
- if(singleGradient)singleGradient.style.background=unaffected?'linear-gradient(to right,#f9d5e9,#f39ac9,#e34da7,#b71b82,#85166f,#6b135e)':'';
+ if(singleGradient)singleGradient.style.background=''; // Layered comparison keeps its separate pink-plum key above.
  el.querySelector('.hs2-density-labels').innerHTML=layered?'<span>Low density</span><span>High density</span>':both?'<span>Red: reported damage</span><span>Blue: unaffected</span>':'<span>Lower</span><span>Higher</span>';
  el.querySelector('p').textContent=layered?'Affected: original rainbow scale. Unaffected: pink to deep plum. Transparency may mix colours; this does not establish causation.':both?'Green indicates overlapping concentrations. Colours do not indicate damage severity or HS2 causation.':(unaffected?'Density of explicitly unaffected property records.':'Density of properties reporting damage.')+' Not damage severity or proof of HS2 causation.';
 }
@@ -962,7 +962,7 @@ function refreshIncidentAreas(){
  if(mode==='heatmap'){
   // Draw a continuous density field instead of Leaflet.heat's cell-aggregated grid.
   const samples=points.map(p=>[Number(p.latitude),Number(p.longitude)]);
-  incidentHeatLayer=new SmoothIncidentDensity(samples,{radiusMeters:radius,opacity,palette:dataset==='unaffected'?'layered-unaffected':undefined}).addTo(map);
+  incidentHeatLayer=new SmoothIncidentDensity(samples,{radiusMeters:radius,opacity}).addTo(map);
   if(note)note.textContent=`Smooth density from ${points.length} ${subject}. Colour shows concentration of records, not damage severity or HS2 causation.`;
   return;
  }
