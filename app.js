@@ -867,12 +867,52 @@ function refreshIncidentAreas(){
  const mode=document.getElementById('incidentStyle')?.value||'heatmap';
  const dataset=document.getElementById('incidentDataset')?.value||'damage';
  if(dataset==='layered'){
-  if(mode!=='heatmap'){
-   if(note)note.textContent='Layered comparison requires the hotspot density heatmap display style.';
-   updateHs2HotspotLegend();return;
-  }
   const affected=properties.filter(reportedIncident);
   const unaffectedProperties=properties.filter(unaffectedIncident);
+  if(mode==='areas'){
+   // Defined incident areas: draw each dataset independently, retaining both
+   // boundaries in overlapping areas. These are exploratory clusters, not
+   // property boundaries or proven HS2 impact zones.
+   const drawDefinedAreas=(records,kind)=>{
+    if(!records.length)return;
+    const coords=records.map(p=>L.latLng(+p.latitude,+p.longitude));
+    const visited=new Set(),clusters=[];
+    for(let i=0;i<coords.length;i++){
+     if(visited.has(i))continue;
+     const group=[],queue=[i];visited.add(i);
+     while(queue.length){
+      const j=queue.shift();group.push(j);
+      for(let k=0;k<coords.length;k++)
+       if(!visited.has(k)&&coords[j].distanceTo(coords[k])<=radius*1.4){visited.add(k);queue.push(k);}
+     }
+     clusters.push(group);
+    }
+    const isUnaffectedGroup=kind==='unaffected';
+    clusters.forEach(group=>{
+     const locations=group.map(i=>[coords[i].lng,coords[i].lat]);
+     try{
+      const shape=locations.length===1?turf.point(locations[0]):locations.length===2?turf.lineString(locations):turf.convex(turf.featureCollection(locations.map(x=>turf.point(x))))||turf.multiPoint(locations);
+      const buffered=turf.buffer(shape,Math.max(12,radius*0.30),{units:'meters',steps:12});
+      if(buffered)L.geoJSON(buffered,{pane:'incidentAreasPane',interactive:false,style:{
+       color:isUnaffectedGroup?'#74206e':'#c52b35',
+       weight:isUnaffectedGroup?2.8:2.5,
+       dashArray:isUnaffectedGroup?'7 5':null,
+       opacity:1,
+       fillColor:isUnaffectedGroup?'#dc6ab1':'#ee7659',
+       fillOpacity:isUnaffectedGroup?Math.min(.26,opacity*.4):Math.min(.28,opacity*.45)
+      }}).addTo(incidentAreaLayer);
+     }catch(err){console.warn('Could not draw layered defined incident area',err);}
+    });
+   };
+   drawDefinedAreas(affected,'affected');
+   drawDefinedAreas(unaffectedProperties,'unaffected');
+   if(note)note.textContent=`Defined incident areas: ${affected.length} reported-damage and ${unaffectedProperties.length} explicitly unaffected properties. Solid red outlines = affected; dashed purple outlines = unaffected. These are illustrative proximity clusters, not confirmed damage boundaries.`;
+   updateHs2HotspotLegend();return;
+  }
+  if(mode!=='heatmap'){
+   if(note)note.textContent='Choose Hotspot density or Defined incident area.';
+   updateHs2HotspotLegend();return;
+  }
   // Draw in order: original affected heatmap underneath original unaffected heatmap.
   if(affected.length)combinedIncidentLayers.push(new SmoothIncidentDensity(
    affected.map(p=>[+p.latitude,+p.longitude]),{radiusMeters:radius,opacity}
