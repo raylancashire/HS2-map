@@ -195,11 +195,12 @@ function updateHs2HotspotLegend(){
   let secondScale=sidebarScale.parentNode.querySelector('.hs2-unaffected-density-scale');
   if(layered&&!secondScale){
    secondScale=document.createElement('div');secondScale.className='hs2-unaffected-density-scale';
-   secondScale.innerHTML='<div style="font-weight:600;margin:7px 0 3px">Unaffected — density</div><div style="height:11px;border-radius:5px;background:linear-gradient(to right,#b4f2fa,#62d2ef,#2f95e1,#235bcc,#3f34a8,#5c1c8b)"></div>';
+   secondScale.innerHTML='<div style="font-weight:600;margin:7px 0 3px">Unaffected — density</div><div style="height:11px;border-radius:5px;background:linear-gradient(to right,#f9d5e9,#f39ac9,#e34da7,#b71b82,#85166f,#6b135e)"></div>';
    sidebarScale.insertAdjacentElement('afterend',secondScale);
   }
   if(secondScale)secondScale.hidden=!layered;
   heading.textContent=layered?'Affected — density (lower layer)':both?'Hotspot density — affected & unaffected':unaffected?'Hotspot density — unaffected':'Hotspot density — affected';
+  sidebarScale.style.background=unaffected?'linear-gradient(to right,#f9d5e9,#f39ac9,#e34da7,#b71b82,#85166f,#6b135e)':'';
  }
 
  // In layered mode show two actual colour keys, one per dataset.
@@ -208,14 +209,15 @@ function updateHs2HotspotLegend(){
   layeredKeys=document.createElement('div');
   layeredKeys.className='hs2-layered-colour-keys';
   layeredKeys.style.cssText='display:grid;gap:5px;margin:7px 0;font-size:12px';
-  layeredKeys.innerHTML='<div><b>Affected (lower)</b><div style="height:10px;border-radius:5px;background:linear-gradient(to right,#3146b8,#00b8e4,#3ad46b,#f5ed43,#ff9327,#d7191c)"></div></div><div><b>Unaffected (upper)</b><div style="height:10px;border-radius:5px;background:linear-gradient(to right,#b4f2fa,#62d2ef,#2f95e1,#235bcc,#3f34a8,#5c1c8b)"></div></div>';
+  layeredKeys.innerHTML='<div><b>Affected (lower)</b><div style="height:10px;border-radius:5px;background:linear-gradient(to right,#3146b8,#00b8e4,#3ad46b,#f5ed43,#ff9327,#d7191c)"></div></div><div><b>Unaffected (upper)</b><div style="height:10px;border-radius:5px;background:linear-gradient(to right,#f9d5e9,#f39ac9,#e34da7,#b71b82,#85166f,#6b135e)"></div></div>';
   el.querySelector('.hs2-density-gradient').insertAdjacentElement('beforebegin',layeredKeys);
  }
  if(layeredKeys)layeredKeys.hidden=!layered;
  const singleGradient=el.querySelector('.hs2-density-gradient');
  if(singleGradient)singleGradient.style.display=layered?'none':'';
+ if(singleGradient)singleGradient.style.background=unaffected?'linear-gradient(to right,#f9d5e9,#f39ac9,#e34da7,#b71b82,#85166f,#6b135e)':'';
  el.querySelector('.hs2-density-labels').innerHTML=layered?'<span>Low density</span><span>High density</span>':both?'<span>Red: reported damage</span><span>Blue: unaffected</span>':'<span>Lower</span><span>Higher</span>';
- el.querySelector('p').textContent=layered?'Affected: original rainbow scale. Unaffected: cyan to purple. Transparency may mix colours; this does not establish causation.':both?'Green indicates overlapping concentrations. Colours do not indicate damage severity or HS2 causation.':(unaffected?'Density of explicitly unaffected property records.':'Density of properties reporting damage.')+' Not damage severity or proof of HS2 causation.';
+ el.querySelector('p').textContent=layered?'Affected: original rainbow scale. Unaffected: pink to deep plum. Transparency may mix colours; this does not establish causation.':both?'Green indicates overlapping concentrations. Colours do not indicate damage severity or HS2 causation.':(unaffected?'Density of explicitly unaffected property records.':'Density of properties reporting damage.')+' Not damage severity or proof of HS2 causation.';
 }
 ['showHotspotLegend','showIncidentAreas','incidentStyle','incidentDataset'].forEach(id=>
  document.getElementById(id)?.addEventListener('change',updateHs2HotspotLegend));
@@ -639,8 +641,8 @@ const SmoothIncidentDensity=L.Layer.extend({
   }
   const data=ctx.getImageData(0,0,w,h),pixels=data.data;
   const defaultStops=[[0.05,[49,70,184]],[0.20,[0,184,228]],[0.38,[58,212,107]],[0.58,[245,237,67]],[0.78,[255,147,39]],[1,[215,25,28]]];
-  // A separate cool scale keeps explicitly unaffected density distinct in layered mode.
-  const coolStops=[[0.05,[180,242,250]],[0.20,[98,210,239]],[0.38,[47,149,225]],[0.58,[35,91,204]],[0.78,[63,52,168]],[1,[92,28,139]]];
+  // Pink-to-plum scale separates explicitly unaffected density from the affected rainbow palette.
+  const coolStops=[[0.05,[249,213,233]],[0.20,[243,154,201]],[0.38,[227,77,167]],[0.58,[183,27,130]],[0.78,[133,22,111]],[1,[107,19,94]]];
   const stops=this.options.palette==='layered-unaffected'?coolStops:defaultStops;
   const palette=this.options.palette;
   // In combined mode, red and blue layers retain their own identity.
@@ -824,7 +826,7 @@ function refreshIncidentAreas(){
  if(mode==='heatmap'){
   // Draw a continuous density field instead of Leaflet.heat's cell-aggregated grid.
   const samples=points.map(p=>[Number(p.latitude),Number(p.longitude)]);
-  incidentHeatLayer=new SmoothIncidentDensity(samples,{radiusMeters:radius,opacity}).addTo(map);
+  incidentHeatLayer=new SmoothIncidentDensity(samples,{radiusMeters:radius,opacity,palette:dataset==='unaffected'?'layered-unaffected':undefined}).addTo(map);
   if(note)note.textContent=`Smooth density from ${points.length} ${subject}. Colour shows concentration of records, not damage severity or HS2 causation.`;
   return;
  }
