@@ -1019,10 +1019,16 @@ function iconFor(p){
  const reviewing=document.getElementById('showPermissionIndicators')?.checked;
  const permission=permissionStatus(p);
  const noDamage=!String(p.damage||'').trim()||/^(no damage|none|nil|no damage recorded|no visible damage|non-affected|non affected|unaffected)[.!\s]*$/i.test(String(p.damage).trim());
- const symbol=permission==='Granted'?'✓':permission==='Not granted'?'×':'?';
- const colour=permission==='Granted'?'#16834b':permission==='Not granted'?'#b42318':'#64748b';
+ const colour=permission==='Granted'?'#16834b':permission==='Not granted'?'#bd2932':'#64748b';
  const label=permission==='Granted'?'Permission granted':permission==='Not granted'?'Permission not granted':permission==='Pending'?'Permission pending':'Permission not recorded';
- const indicator=reviewing?`<span style="position:absolute;transform:translate(7px,-9px);background:${colour};color:white;border:1px solid white;border-radius:50%;font-size:11px;font-weight:bold;line-height:14px;width:15px;height:15px;text-align:center" aria-label="${label}" title="${label}">${symbol}</span>`:'';
+ // Compact vector badge: equal-sized symbols, sharp strokes and a white outline.
+ // Position the badge to the upper-right of the original property dot.
+ const glyph=permission==='Granted'
+  ?'<path d="M4.2 8.1 6.8 10.5 11.8 5.4"/>'
+  :permission==='Not granted'
+   ?'<path d="M5.2 5.2 10.8 10.8 M10.8 5.2 5.2 10.8"/>'
+   :'<path d="M6.1 6.1a2 2 0 0 1 3.8.7c0 1.3-1.9 1.7-1.9 3 M8 12.1h.01"/>';
+ const indicator=reviewing?`<span style="position:absolute;left:9px;top:-10px;width:17px;height:17px;display:block;pointer-events:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))" role="img" aria-label="${label}" title="${label}"><svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true" style="display:block;overflow:visible"><circle cx="8" cy="8" r="7.1" fill="${colour}" stroke="#fff" stroke-width="1.8"/><g fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${glyph}</g></svg></span>`:'';
  return L.divIcon({className:'',html:`<span class="house-marker ${p.status}${noDamage?' no-damage':''}" aria-label="${esc(p.address)}"></span>${indicator}`,iconSize:[12,12],iconAnchor:[6,6]});
 }
 let displayedMarkerProperties=[];
