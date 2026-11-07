@@ -1001,8 +1001,9 @@ map.on('zoomend',()=>{if(document.getElementById('showIncidentAreas')?.checked&&
 function permissionStatus(p){const x=String(p?.mappingPermission||'Not recorded').trim().toLowerCase();return x==='granted'?'Granted':x==='pending'?'Pending':x==='not granted'?'Not granted':'Not recorded'}
 const hs2PermissionToggle=document.createElement('label');
 hs2PermissionToggle.style.cssText='display:flex;align-items:center;gap:7px;margin:9px 0';
-hs2PermissionToggle.innerHTML='<input type="checkbox" id="showPermissionIndicators"> Show permission indicators (green ✓ = granted)';
+hs2PermissionToggle.innerHTML='<input type="checkbox" id="showPermissionIndicators"> Show all recorded properties with permission indicators (administrative view)';
 (document.getElementById('showHouses')?.closest('label')||document.getElementById('showHouses')?.parentElement||document.getElementById('summary')?.parentElement)?.insertAdjacentElement('afterend',hs2PermissionToggle);
+hs2PermissionToggle.title='Administrative review only: this reveals excluded properties and must not be enabled on a public-facing map.';
 hs2PermissionToggle.querySelector('input').addEventListener('change',()=>render());
 if(!HS2_PUBLIC_DISPLAY){
  const editor=document.getElementById('pinEditor');
@@ -1014,7 +1015,16 @@ if(!HS2_PUBLIC_DISPLAY){
 }
 function setEditorPermission(p){const el=document.getElementById('pinMappingPermission');if(el)el.value=permissionStatus(p)}
 function editorPermission(){return {mappingPermission:document.getElementById('pinMappingPermission')?.value||'Not recorded'}}
-function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}${!String(p.damage||'').trim()||/^(no damage|none|nil|no damage recorded|no visible damage|non-affected|non affected|unaffected)[.!\s]*$/i.test(String(p.damage).trim())?' no-damage':''}" aria-label="${esc(p.address)}"></span>${document.getElementById('showPermissionIndicators')?.checked&&permissionStatus(p)==='Granted'?'<span style="position:absolute;transform:translate(7px,-9px);background:#16834b;color:white;border:1px solid white;border-radius:50%;font-size:10px;line-height:13px;width:14px;height:14px;text-align:center" aria-label="Mapping permission granted">✓</span>':''}`,iconSize:[12,12],iconAnchor:[6,6]})}
+function iconFor(p){
+ const reviewing=document.getElementById('showPermissionIndicators')?.checked;
+ const permission=permissionStatus(p);
+ const noDamage=!String(p.damage||'').trim()||/^(no damage|none|nil|no damage recorded|no visible damage|non-affected|non affected|unaffected)[.!\s]*$/i.test(String(p.damage).trim());
+ const symbol=permission==='Granted'?'✓':permission==='Not granted'?'×':'?';
+ const colour=permission==='Granted'?'#16834b':permission==='Not granted'?'#b42318':'#64748b';
+ const label=permission==='Granted'?'Permission granted':permission==='Not granted'?'Permission not granted':permission==='Pending'?'Permission pending':'Permission not recorded';
+ const indicator=reviewing?`<span style="position:absolute;transform:translate(7px,-9px);background:${colour};color:white;border:1px solid white;border-radius:50%;font-size:11px;font-weight:bold;line-height:14px;width:15px;height:15px;text-align:center" aria-label="${label}" title="${label}">${symbol}</span>`:'';
+ return L.divIcon({className:'',html:`<span class="house-marker ${p.status}${noDamage?' no-damage':''}" aria-label="${esc(p.address)}"></span>${indicator}`,iconSize:[12,12],iconAnchor:[6,6]});
+}
 let displayedMarkerProperties=[];
 function render(skipList=false){
  refreshHotspotComparison();
@@ -1022,20 +1032,20 @@ function render(skipList=false){
  measurementLayer.clearLayers();markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;
  let visible=0;
  properties.forEach(p=>{
-  if(!isPropertyIncluded(p))return;
+  if(!isPropertyIncluded(p)&&!document.getElementById('showPermissionIndicators')?.checked)return;
   p.distance=isLocalCoordinate(p.latitude,p.longitude)?tunnelDistance(+p.latitude,+p.longitude):NaN;
   p.status=classify(p.distance);
   if(!isLocalCoordinate(p.latitude,p.longitude))return;
   const text=`${p.id} ${p.address} ${p.postcode||''} ${p.damage||''} ${p.notes||''}`.toLowerCase();
-  if(q&&!text.includes(q))return;
-  if(filter==='unaffected'&&!isUnaffected(p))return;
-  if(filter==='very-close'&&!(p.distance<=15))return;
-  if(filter==='within-30'&&!(p.distance>15&&p.distance<=30))return;
-  if(filter==='outside-30'&&!(p.distance>30))return;
+  if(!document.getElementById('showPermissionIndicators')?.checked&&q&&!text.includes(q))return;
+  if(!document.getElementById('showPermissionIndicators')?.checked&&filter==='unaffected'&&!isUnaffected(p))return;
+  if(!document.getElementById('showPermissionIndicators')?.checked&&filter==='very-close'&&!(p.distance<=15))return;
+  if(!document.getElementById('showPermissionIndicators')?.checked&&filter==='within-30'&&!(p.distance>15&&p.distance<=30))return;
+  if(!document.getElementById('showPermissionIndicators')?.checked&&filter==='outside-30'&&!(p.distance>30))return;
   // If any street disclosure is expanded, display markers only for those streets.
   // With no expanded streets, retain the normal overview of all matching properties.
   const streetKey=addressParts(p.address).street.toLocaleLowerCase('en-GB');
-  if(expandedStreets.size&&!expandedStreets.has(streetKey))return;
+  if(!document.getElementById('showPermissionIndicators')?.checked&&expandedStreets.size&&!expandedStreets.has(streetKey))return;
   visible++;
   displayedMarkerProperties.push(p);
   const m=L.marker([+p.latitude,+p.longitude],{icon:iconFor(p)}).addTo(markerLayer);
