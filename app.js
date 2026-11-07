@@ -1756,3 +1756,47 @@ window.HS2PropertyAnalysis={getProperties:()=>properties,focusProperty:(p)=>focu
 map.on("moveend zoomend",()=>document.dispatchEvent(new Event("hs2-map-viewport-updated")));
 map.on("overlayadd overlayremove",()=>document.dispatchEvent(new Event("hs2-map-viewport-updated")));
 document.querySelector("#showHouses")?.addEventListener("change",()=>document.dispatchEvent(new Event("hs2-map-viewport-updated")));
+
+
+// Align the comparison disclosure with the other full-width analysis controls.
+(function alignHotspotComparison(){
+ const style=document.createElement('style');
+ style.id='hs2-comparison-alignment';
+ style.textContent=`
+ #hotspotComparison{margin-left:320px;width:calc(100% - 320px);max-width:none;min-width:0;box-sizing:border-box;}
+ #hotspotComparison>summary{padding:13px 38px 13px 15px;background:#edf3f9;color:#12345b;font-size:16px;font-weight:700;position:relative;list-style:none;cursor:pointer;}
+ #hotspotComparison>summary::-webkit-details-marker{display:none;}
+ #hotspotComparison>summary::after{content:'+';position:absolute;right:15px;top:8px;font-size:19px;}
+ #hotspotComparison[open]>summary::after{content:'−';}
+ #hotspotComparison .analysis-content{width:100%;max-width:none;min-width:0;box-sizing:border-box;}
+ @media(max-width:760px){#hotspotComparison{margin-left:0;width:100%;}}
+ `;
+ document.head.appendChild(style);
+})();
+
+// Keep the claims indicator in sync with edits, CSV imports and visibility changes.
+(function initialiseClaimSummary(){
+ const host=document.getElementById('analysisClaims');
+ if(!host)return;
+ const style=document.createElement('style');
+ style.textContent=`#analysisClaims .hs2-claim-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin:10px 0;}#analysisClaims .hs2-claim-stat{padding:12px;border:1px solid #dbe3ec;border-radius:8px;background:#f3f6fa;}#analysisClaims .hs2-claim-stat strong{display:block;font-size:23px;color:#12345b;}#analysisClaims .hs2-claim-stat span{font-size:12px;color:#526477;}#analysisClaims .hs2-claim-note{font-size:12px;color:#5d6876;}`;
+ document.head.appendChild(style);
+ const escapeText=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function update(){
+  const included=properties.filter(isPropertyIncluded);
+  const norm=v=>String(v||'').trim().toLowerCase();
+  const yes=included.filter(p=>norm(p.claimReported)==='yes').length;
+  const no=included.filter(p=>norm(p.claimReported)==='no').length;
+  const unknown=included.filter(p=>norm(p.claimReported)==='unknown').length;
+  const missing=included.length-yes-no-unknown;
+  const results=new Map();
+  included.filter(p=>norm(p.claimReported)==='yes').forEach(p=>{
+   const result=String(p.claimResult||'').trim()||'Not recorded';
+   results.set(result,(results.get(result)||0)+1);
+  });
+  const stat=(n,label)=>`<div class="hs2-claim-stat"><strong>${n}</strong><span>${label}</span></div>`;
+  host.innerHTML=`<div class="hs2-claim-stats">${stat(yes,'Claim reported: Yes')}${stat(no,'Claim reported: No')}${stat(unknown,'Claim reported: Unknown')}${stat(missing,'Not recorded')}</div><p class="hs2-claim-note">${included.length} included properties. Claim results for properties marked Yes: ${[...results].sort((a,b)=>a[0].localeCompare(b[0])).map(([name,n])=>`${escapeText(name)} (${n})`).join(' · ')||'None recorded'}. Counts reflect recorded responses, not verified claim outcomes.</p>`;
+ }
+ document.addEventListener('hs2-properties-updated',update);
+ update();
+})();
