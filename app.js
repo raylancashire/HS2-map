@@ -1774,29 +1774,7 @@ document.querySelector("#showHouses")?.addEventListener("change",()=>document.di
  document.head.appendChild(style);
 })();
 
-// Keep the claims indicator in sync with edits, CSV imports and visibility changes.
-(function initialiseClaimSummary(){
- const host=document.getElementById('analysisClaims');
- if(!host)return;
- const style=document.createElement('style');
- style.textContent=`#analysisClaims .hs2-claim-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin:10px 0;}#analysisClaims .hs2-claim-stat{padding:12px;border:1px solid #dbe3ec;border-radius:8px;background:#f3f6fa;}#analysisClaims .hs2-claim-stat strong{display:block;font-size:23px;color:#12345b;}#analysisClaims .hs2-claim-stat span{font-size:12px;color:#526477;}#analysisClaims .hs2-claim-note{font-size:12px;color:#5d6876;}`;
- document.head.appendChild(style);
- const escapeText=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- function update(){
-  const included=properties.filter(isPropertyIncluded);
-  const norm=v=>String(v||'').trim().toLowerCase();
-  const yes=included.filter(p=>norm(p.claimReported)==='yes').length;
-  const no=included.filter(p=>norm(p.claimReported)==='no').length;
-  const unknown=included.filter(p=>norm(p.claimReported)==='unknown').length;
-  const missing=included.length-yes-no-unknown;
-  const results=new Map();
-  included.filter(p=>norm(p.claimReported)==='yes').forEach(p=>{
-   const result=String(p.claimResult||'').trim()||'Not recorded';
-   results.set(result,(results.get(result)||0)+1);
-  });
-  const stat=(n,label)=>`<div class="hs2-claim-stat"><strong>${n}</strong><span>${label}</span></div>`;
-  host.innerHTML=`<div class="hs2-claim-stats">${stat(yes,'Claim reported: Yes')}${stat(no,'Claim reported: No')}${stat(unknown,'Claim reported: Unknown')}${stat(missing,'Not recorded')}</div><p class="hs2-claim-note">${included.length} included properties. Claim results for properties marked Yes: ${[...results].sort((a,b)=>a[0].localeCompare(b[0])).map(([name,n])=>`${escapeText(name)} (${n})`).join(' · ')||'None recorded'}. Counts reflect recorded responses, not verified claim outcomes.</p>`;
- }
- document.addEventListener('hs2-properties-updated',update);
- update();
-})();
+// The claims overview is rendered exclusively by property-analysis.js.
+// Avoid competing writers to #analysisClaims; app.js dispatches
+// hs2-properties-updated after each property render.
+

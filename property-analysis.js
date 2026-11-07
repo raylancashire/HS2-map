@@ -71,6 +71,7 @@
   const yes=ps.filter(item=>norm(item.claimReported)==='yes');
   const no=ps.filter(item=>norm(item.claimReported)==='no');
   const unknown=ps.length-yes.length-no.length;
+  const unexpected=ps.filter(item=>norm(item.claimReported)&&!['yes','no','unknown','not recorded'].includes(norm(item.claimReported)));
   const results=['Pending','Under Review','Accepted','Rejected','Withdrawn','Settled','Other'];
   const grouped=results.map(label=>[label,yes.filter(item=>norm(item.claimResult)===norm(label)).length]);
   const notRecorded=yes.filter(item=>!norm(item.claimResult)).length;
@@ -83,6 +84,7 @@
     <div class="analysis-stat"><strong>${unknown}</strong><span>Unknown / not recorded</span></div>
     <div class="analysis-stat"><strong>${ps.length}</strong><span>Included properties</span></div>
    </div>
+   ${unexpected.length?`<p class="hint">${unexpected.length} record(s) have an unrecognised Claim Reported value; check the Sheet.</p>`:''}
    <h3>Outcomes for reported claims</h3>
    <div class="analysis-table-wrap"><table class="analysis-table"><thead><tr><th>Claim result</th><th>Properties</th></tr></thead><tbody>
    ${grouped.map(([label,n])=>`<tr><td>${escape(label)}</td><td>${n}</td></tr>`).join('')}
