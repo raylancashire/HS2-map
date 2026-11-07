@@ -373,6 +373,7 @@ loadWardBoundary();
   wrapper.append(heading,hint,borough,selector,allLabel,controls,list,status);
   anchor.insertAdjacentElement('afterend',wrapper);
   const boroughs=[['Westminster','Westminster'],['Brent','Brent'],['Kensington and Chelsea','RBKC'],['Hammersmith and Fulham','Hammersmith & Fulham'],['Camden','Camden']];
+  function displayWardName(w){return w.name+' ('+({'Kensington and Chelsea':'RBKC','Hammersmith and Fulham':'Hammersmith & Fulham'}[w.district]||w.district)+')';}
   const colors={'Westminster':'#007F86','Brent':'#7C4DA5','Kensington and Chelsea':'#E38B20','Hammersmith and Fulham':'#26835D','Camden':'#B24B68'};
   const active=new Map();const wards=new Map();let corridor=null;let corridorReady=false;
   const pinnedWardIds=new Set();
@@ -400,7 +401,7 @@ loadWardBoundary();
       const bounds=shape.getBounds();
       if(bounds.isValid()){
         L.tooltip({permanent:true,direction:'center',className:'ward-preview-name',interactive:false,opacity:1})
-          .setLatLng(bounds.getCenter()).setContent(w.name).addTo(group);
+          .setLatLng(bounds.getCenter()).setContent(displayWardName(w)).addTo(group);
       }
       highlightLayers.set(id,group);
     }
@@ -428,7 +429,7 @@ loadWardBoundary();
       const w=wards.get(opt.value);
       if(!w)continue;
       const selected=pinnedWardIds.has(opt.value);
-      opt.textContent=w.name+(selected?' (highlighted)':'');
+      opt.textContent=displayWardName(w)+(selected?' — highlighted':'');
       opt.style.fontWeight='normal';
       opt.style.fontStyle='normal';
     }
@@ -448,7 +449,7 @@ loadWardBoundary();
     const available=[...wards.values()].filter(w=>w.district===district && (showAll.checked||w.suggested))
       .sort((a,b)=>a.name.localeCompare(b.name));
     selector.replaceChildren(option(available.length?'Select a ward…':'No matching wards',''));
-    available.forEach(w=>selector.append(option(w.name,key(w.district,w.name))));
+    available.forEach(w=>selector.append(option(displayWardName(w),key(w.district,w.name))));
     updateDropdownSelectedWards();
     const suggested=[...wards.values()].filter(w=>w.district===district&&w.suggested).length;
     status.textContent=wards.size?`${suggested} ${district} wards near the published tunnel alignment. ${available.length} available in this list.`:'Loading ward boundaries…';
@@ -466,7 +467,7 @@ loadWardBoundary();
     const label=document.createElement('span');label.className='additional-ward-name';label.tabIndex=0;
     label.title='Tap or click to toggle this ward highlight';
     label.setAttribute('role','button');label.setAttribute('aria-pressed','false');
-    label.textContent=w.name+' ('+(w.district==='Kensington and Chelsea'?'RBKC':w.district==='Hammersmith and Fulham'?'Hammersmith & Fulham':w.district)+')';
+    label.textContent=displayWardName(w);
     label.addEventListener('mouseenter',()=>previewWard(id));
     label.addEventListener('mouseleave',endWardPreview);
     label.addEventListener('focus',()=>previewWard(id));
@@ -502,11 +503,11 @@ loadWardBoundary();
       for(const {district,features} of results){
         for(const feature of features){
           const name=wardName(feature);if(!name)continue;
-          if(district==='Westminster'&&name.toLowerCase().replace(/[’‘]/g,"'")==="queen's park")continue;
+          const isQueensPark=(district==='Westminster'&&name.toLowerCase().replace(/[’‘]/g,"'")==="queen's park");
           const id=key(district,name);
           if(!wards.has(id))wards.set(id,{district,name,features:[],suggested:false});
           const item=wards.get(id);item.features.push(feature);
-          if(isSuggested(feature)||(district==='Hammersmith and Fulham'&&name==='College Park and Old Oak'))item.suggested=true;
+          if(isQueensPark||isSuggested(feature)||(district==='Hammersmith and Fulham'&&name==='College Park and Old Oak'))item.suggested=true;
         }
       }
       if(!wards.size)throw Error('No ward features returned');

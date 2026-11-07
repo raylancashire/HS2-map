@@ -67,11 +67,21 @@
  }
  function renderClaims(all){
   const ps=all.filter(item=>!/^(excluded)$/i.test(String(item.mapVisibility||'').trim()));
-  const norm=s=>String(s??'').trim().toLowerCase().replace(/[\\s_-]+/g,' ');
-  const yes=ps.filter(item=>norm(item.claimReported)==='yes');
-  const no=ps.filter(item=>norm(item.claimReported)==='no');
+  // Normalise values from Sheets, including invisible Unicode separators,
+  // smart punctuation and common yes/no dropdown variants.
+  const norm=s=>String(s??'').normalize('NFKC').replace(/[\u200B-\u200D\u2060\uFEFF]/g,'').trim().toLowerCase().replace(/[\s_-]+/g,' ');
+  const claimStatus=item=>{
+    const value=norm(item.claimReported).replace(/^[\s'"“”‘’]+|[\s'"“”‘’]+$/g,'');
+    if(['yes','y','true','1','confirmed','reported','claim reported'].includes(value))return 'yes';
+    if(['no','n','false','0','no claim','not reported','none'].includes(value))return 'no';
+    if(['','unknown','not recorded','pending','n/a','na'].includes(value))return 'unknown';
+    return 'unexpected';
+  };
+  const yes=ps.filter(item=>claimStatus(item)==='yes');
+  const no=ps.filter(item=>claimStatus(item)==='no');
   const unknown=ps.length-yes.length-no.length;
-  const unexpected=ps.filter(item=>norm(item.claimReported)&&!['yes','no','unknown','not recorded'].includes(norm(item.claimReported)));
+  const unexpected=ps.filter(item=>claimStatus(item)==='unexpected');
+  const unexpectedValues=[...new Set(unexpected.map(item=>String(item.claimReported??'')))].slice(0,5);
   const results=['Pending','Under Review','Accepted','Rejected','Withdrawn','Settled','Other'];
   const grouped=results.map(label=>[label,yes.filter(item=>norm(item.claimResult)===norm(label)).length]);
   const notRecorded=yes.filter(item=>!norm(item.claimResult)).length;
@@ -84,7 +94,7 @@
     <div class="analysis-stat"><strong>${unknown}</strong><span>Unknown / not recorded</span></div>
     <div class="analysis-stat"><strong>${ps.length}</strong><span>Included properties</span></div>
    </div>
-   ${unexpected.length?`<p class="hint">${unexpected.length} record(s) have an unrecognised Claim Reported value; check the Sheet.</p>`:''}
+   ${unexpected.length?`<p class="hint">${unexpected.length} record(s) have an unrecognised Claim Reported value: ${unexpectedValues.map(v=>`<code>${escape(v)}</code>`).join(', ')}. Check the source value or field mapping.</p>`:''}
    <h3>Outcomes for reported claims</h3>
    <div class="analysis-table-wrap"><table class="analysis-table"><thead><tr><th>Claim result</th><th>Properties</th></tr></thead><tbody>
    ${grouped.map(([label,n])=>`<tr><td>${escape(label)}</td><td>${n}</td></tr>`).join('')}
