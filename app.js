@@ -996,7 +996,24 @@ for(const id of ['showIncidentAreas','incidentRadius','incidentOpacity','inciden
  document.getElementById(id)?.addEventListener('input',()=>{refreshIncidentAreas();updateHs2HotspotLegend();});
 }
 map.on('zoomend',()=>{if(document.getElementById('showIncidentAreas')?.checked&&document.getElementById('incidentStyle')?.value==='heatmap')refreshIncidentAreas();});
-function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}${!String(p.damage||'').trim()||/^(no damage|none|nil|no damage recorded|no visible damage|non-affected|non affected|unaffected)[.!\s]*$/i.test(String(p.damage).trim())?' no-damage':''}" aria-label="${esc(p.address)}"></span>`,iconSize:[12,12],iconAnchor:[6,6]})}
+// Permission values are metadata, not damage classifications.
+function permissionStatus(p){const x=String(p?.mappingPermission||'Not recorded').trim().toLowerCase();return x==='granted'?'Granted':x==='pending'?'Pending':x==='not granted'?'Not granted':'Not recorded'}
+const hs2PermissionToggle=document.createElement('label');
+hs2PermissionToggle.style.cssText='display:flex;align-items:center;gap:7px;margin:9px 0';
+hs2PermissionToggle.innerHTML='<input type="checkbox" id="showPermissionIndicators"> Show permission indicators (green ✓ = granted)';
+(document.getElementById('showHouses')?.closest('label')||document.getElementById('showHouses')?.parentElement||document.getElementById('summary')?.parentElement)?.insertAdjacentElement('afterend',hs2PermissionToggle);
+hs2PermissionToggle.querySelector('input').addEventListener('change',()=>render());
+if(!HS2_PUBLIC_DISPLAY){
+ const editor=document.getElementById('pinEditor');
+ const label=document.createElement('label');label.textContent='Property mapping permission ';
+ const select=document.createElement('select');select.id='pinMappingPermission';
+ select.innerHTML=['Not recorded','Pending','Granted','Not granted'].map(x=>'<option value="'+x+'">'+x+'</option>').join('');
+ label.appendChild(select);
+ (document.getElementById('pinDamage')?.closest('label')||editor).insertAdjacentElement('afterend',label);
+}
+function setEditorPermission(p){const el=document.getElementById('pinMappingPermission');if(el)el.value=permissionStatus(p)}
+function editorPermission(){return {mappingPermission:document.getElementById('pinMappingPermission')?.value||'Not recorded'}}
+function iconFor(p){return L.divIcon({className:'',html:`<span class="house-marker ${p.status}${!String(p.damage||'').trim()||/^(no damage|none|nil|no damage recorded|no visible damage|non-affected|non affected|unaffected)[.!\s]*$/i.test(String(p.damage).trim())?' no-damage':''}" aria-label="${esc(p.address)}"></span>${document.getElementById('showPermissionIndicators')?.checked&&permissionStatus(p)==='Granted'?'<span style="position:absolute;transform:translate(7px,-9px);background:#16834b;color:white;border:1px solid white;border-radius:50%;font-size:10px;line-height:13px;width:14px;height:14px;text-align:center" aria-label="Mapping permission granted">✓</span>':''}`,iconSize:[12,12],iconAnchor:[6,6]})}
 let displayedMarkerProperties=[];
 function render(skipList=false){
  refreshHotspotComparison();
@@ -1195,7 +1212,7 @@ function propertyCard(p){
  const distance=Number.isFinite(p.distance)?Math.round(p.distance)+' metres (estimated)':'Not available';
  const photos=photoEntries(p);
  const gallery=photos.length?`<div class="property-gallery">${photos.map((photo,i)=>`<a href="${esc(photo.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open property photo ${i+1}: ${esc(photo.caption)}"><img src="${esc(photo.url)}" alt="${esc(photo.caption)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"><small>${esc(photo.caption)}</small></a>`).join('')}</div>`:'<p class="hint">No indexed photographs for this property yet.</p>';
- return `<div class="property-card"><h3>${esc(p.address)}</h3><p><strong>Location:</strong> ${esc(p.address)}${p.postcode?', '+esc(p.postcode):''}</p><p><strong>Property ID:</strong> ${esc(p.id)}</p><p><strong>Distance from tunnel:</strong> ${distance}</p><p><strong>Coordinates:</strong> ${Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)?Number(p.latitude).toFixed(6)+', '+Number(p.longitude).toFixed(6):'Unavailable'}</p>${p.notes?`<p>${esc(p.notes)}</p>`:''}<h4>Damage recorded</h4><p class="damage-description">${p.damage?esc(p.damage).replace(/^(no damage|none|nil|no damage recorded|no visible damage|unaffected)$/i,'Non-affected').replace(/\r?\n/g,'<br>'):'Non-affected'}</p><h4>Associated photographs</h4><div class="hs2-live-previews" data-address="${esc(p.address)}" aria-label="Webador photograph previews"><span class="hint">Loading Webador photographs…</span></div><button type="button" class="hs2-webador-gallery" data-address="${esc(p.address)}">View property photographs</button><p class="hint">Opens the Webador album viewer when displayed on the QPT website.</p>${gallery}${photoAlbumLink()}<button type="button" class="edit-location" data-property-id="${esc(p.id)}" data-property-address="${esc(p.address)}">Edit location on map</button><p class="hint">Tunnel geometry is provisional. Distance is horizontal and does not establish eligibility or safeguarding status.</p></div>`;
+ return `<div class="property-card"><h3>${esc(p.address)}</h3><p><strong>Location:</strong> ${esc(p.address)}${p.postcode?', '+esc(p.postcode):''}</p><p><strong>Property ID:</strong> ${esc(p.id)}</p><p><strong>Mapping permission:</strong> ${esc(permissionStatus(p))}</p><p><strong>Distance from tunnel:</strong> ${distance}</p><p><strong>Coordinates:</strong> ${Number.isFinite(+p.latitude)&&Number.isFinite(+p.longitude)?Number(p.latitude).toFixed(6)+', '+Number(p.longitude).toFixed(6):'Unavailable'}</p>${p.notes?`<p>${esc(p.notes)}</p>`:''}<h4>Damage recorded</h4><p class="damage-description">${p.damage?esc(p.damage).replace(/^(no damage|none|nil|no damage recorded|no visible damage|unaffected)$/i,'Non-affected').replace(/\r?\n/g,'<br>'):'Non-affected'}</p><h4>Associated photographs</h4><div class="hs2-live-previews" data-address="${esc(p.address)}" aria-label="Webador photograph previews"><span class="hint">Loading Webador photographs…</span></div><button type="button" class="hs2-webador-gallery" data-address="${esc(p.address)}">View property photographs</button><p class="hint">Opens the Webador album viewer when displayed on the QPT website.</p>${gallery}${photoAlbumLink()}<button type="button" class="edit-location" data-property-id="${esc(p.id)}" data-property-address="${esc(p.address)}">Edit location on map</button><p class="hint">Tunnel geometry is provisional. Distance is horizontal and does not establish eligibility or safeguarding status.</p></div>`;
 }
 function showDetails(p){document.querySelector('#details').innerHTML='<h2>Selected property</h2>'+propertyCard(p);bindEditLocation(document.querySelector('#details'));bindPhotoButtons(document.querySelector('#details'))}
 function focusProperty(p,zoom=19){
@@ -1226,7 +1243,7 @@ function splitCSV(line){let out=[],v='',q=false;for(let i=0;i<line.length;i++){c
 // Preserve quoted line breaks in free-text fields such as Damage.
 function csvRecords(text){let records=[],start=0,quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"')i++;else quoted=!quoted;}else if((c==='\n'||c==='\r')&&!quoted){const line=text.slice(start,i);if(line.trim())records.push(line);if(c==='\r'&&text[i+1]==='\n')i++;start=i+1;}}const last=text.slice(start);if(last.trim())records.push(last);return records;}
 function normaliseHeader(x){return String(x||'').toLowerCase().trim().replace(/[ _-]+/g,'')}
-function parseCSV(text){const lines=csvRecords(text.replace(/^\uFEFF/,''));if(lines.length<2)throw Error('The sheet has no data rows.');const raw=splitCSV(lines[0]);const aliases={id:['id','propertyid','ref','reference'],address:['address','propertyaddress','houseaddress'],postcode:['postcode','postalcode','zip'],latitude:['latitude','lat'],longitude:['longitude','lng','lon','long'],notes:['notes','note','comments','comment'],damage:['damage','damagedescription','propertydamage'],photos:['photos','photourls','photo','images','imageurls','photolinks'],mapVisibility:['mapvisibility','visibility','includeonmap'],claimReported:['claimreported','claimsubmitted','claimmade'],claimResult:['claimresult','claimoutcome','claimstatus']};const idx={};raw.forEach((h,i)=>{const n=normaliseHeader(h);for(const [key,vals] of Object.entries(aliases))if(vals.includes(n))idx[key]=i});if(idx.address===undefined)throw Error('Missing required column: Address.');const rows=[];lines.slice(1).forEach((line,i)=>{const a=splitCSV(line);if(!a.some(Boolean))return;const get=k=>idx[k]===undefined?'':(a[idx[k]]??'').trim();if(!get('address'))return;const lat=parseFloat(get('latitude')),lon=parseFloat(get('longitude'));rows.push({id:get('id')||String(rows.length+1).padStart(2,'0'),address:get('address'),postcode:get('postcode'),latitude:Number.isFinite(lat)?lat:null,longitude:Number.isFinite(lon)?lon:null,notes:get('notes'),damage:get('damage'),claimReported:get('claimReported'),claimResult:get('claimResult'),photos:get('photos'),mapVisibility:get('mapVisibility')||'Included',rowNumber:i+2})});if(!rows.length)throw Error('No usable property rows were found.');return rows}
+function parseCSV(text){const lines=csvRecords(text.replace(/^\uFEFF/,''));if(lines.length<2)throw Error('The sheet has no data rows.');const raw=splitCSV(lines[0]);const aliases={id:['id','propertyid','ref','reference'],address:['address','propertyaddress','houseaddress'],postcode:['postcode','postalcode','zip'],latitude:['latitude','lat'],longitude:['longitude','lng','lon','long'],notes:['notes','note','comments','comment'],damage:['damage','damagedescription','propertydamage'],photos:['photos','photourls','photo','images','imageurls','photolinks'],mapVisibility:['mapvisibility','visibility','includeonmap'],claimReported:['claimreported','claimsubmitted','claimmade'],claimResult:['claimresult','claimoutcome','claimstatus'],mappingPermission:['mappingpermission','propertymappingpermission','permission','publicationpermission']};const idx={};raw.forEach((h,i)=>{const n=normaliseHeader(h);for(const [key,vals] of Object.entries(aliases))if(vals.includes(n))idx[key]=i});if(idx.address===undefined)throw Error('Missing required column: Address.');const rows=[];lines.slice(1).forEach((line,i)=>{const a=splitCSV(line);if(!a.some(Boolean))return;const get=k=>idx[k]===undefined?'':(a[idx[k]]??'').trim();if(!get('address'))return;const lat=parseFloat(get('latitude')),lon=parseFloat(get('longitude'));rows.push({id:get('id')||String(rows.length+1).padStart(2,'0'),address:get('address'),postcode:get('postcode'),latitude:Number.isFinite(lat)?lat:null,longitude:Number.isFinite(lon)?lon:null,notes:get('notes'),damage:get('damage'),claimReported:get('claimReported'),claimResult:get('claimResult'),mappingPermission:get('mappingPermission')||'Not recorded',photos:get('photos'),mapVisibility:get('mapVisibility')||'Included',rowNumber:i+2})});if(!rows.length)throw Error('No usable property rows were found.');return rows}
 const GEOCODE_CACHE_VERSION='v3';
 const QP_BOUNDS={south:51.515,north:51.555,west:-0.245,east:-0.165};
 function isLocalCoordinate(lat,lon){lat=+lat;lon=+lon;return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=QP_BOUNDS.south&&lat<=QP_BOUNDS.north&&lon>=QP_BOUNDS.west&&lon<=QP_BOUNDS.east}
@@ -1513,7 +1530,7 @@ function applyManualPins(){
  const pins=storedPins(), matched=new Set();
  properties.forEach(p=>{
   const override=matchSavedPin(p,pins);
-  if(override){/* The Sheet is authoritative for Map Visibility on existing rows. */Object.assign(p,{address:override.address||p.address,postcode:override.postcode??p.postcode,notes:override.notes??p.notes});
+  if(override){/* The Sheet is authoritative for Map Visibility on existing rows. */Object.assign(p,{address:override.address||p.address,postcode:override.postcode??p.postcode,notes:override.notes??p.notes,mappingPermission:override.mappingPermission??p.mappingPermission});
    if(isLocalCoordinate(override.latitude,override.longitude)){p.latitude=override.latitude;p.longitude=override.longitude;p.locationSource='manual'}
    matched.add(pinKey(override));
   }
@@ -1631,7 +1648,7 @@ function selectPropertyForEditing(index){
  stopPin();document.querySelector('#pinProperty').value=String(index);updateRemoveLocalButton();
  document.querySelector('#pinAddress').value=p.address;
  document.querySelector('#pinPostcode').value=p.postcode||'';
- document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';setEditorVisibility(p);setEditorClaims(p);
+ document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';setEditorVisibility(p);setEditorClaims(p);setEditorPermission(p);
  if(isLocalCoordinate(p.latitude,p.longitude))focusProperty(p);
  pinMsg('Selected '+p.address+'. Click Place pinpoint on map to correct its location.');
  document.querySelector('#pinEditor').scrollIntoView({behavior:'smooth',block:'start'});
@@ -1645,8 +1662,8 @@ function bindEditLocation(container){
 }
 document.querySelector('#pinProperty').addEventListener('change',e=>{
  updateRemoveLocalButton();
- const p=properties[+e.target.value];if(e.target.value==='new'||!p){document.querySelector('#pinAddress').value='';document.querySelector('#pinPostcode').value='';document.querySelector('#pinNotes').value='';document.querySelector('#pinDamage').value='';setEditorVisibility(null);setEditorClaims(null);return}
- document.querySelector('#pinAddress').value=p.address;document.querySelector('#pinPostcode').value=p.postcode||'';document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';setEditorVisibility(p);setEditorClaims(p);
+ const p=properties[+e.target.value];if(e.target.value==='new'||!p){document.querySelector('#pinAddress').value='';document.querySelector('#pinPostcode').value='';document.querySelector('#pinNotes').value='';document.querySelector('#pinDamage').value='';setEditorVisibility(null);setEditorClaims(null);setEditorPermission(null);return}
+ document.querySelector('#pinAddress').value=p.address;document.querySelector('#pinPostcode').value=p.postcode||'';document.querySelector('#pinNotes').value=p.notes||'';document.querySelector('#pinDamage').value=p.damage||'';setEditorVisibility(p);setEditorClaims(p);setEditorPermission(p);
  focusProperty(p);
 });
 document.querySelector('#saveDetails').addEventListener('click',()=>{
@@ -1655,7 +1672,7 @@ document.querySelector('#saveDetails').addEventListener('click',()=>{
  const original=properties[+chosen];if(!original)return;
  const address=document.querySelector('#pinAddress').value.trim();
  if(!address){pinMsg('Please enter the street address.');return}
- const updated={...original,address,postcode:document.querySelector('#pinPostcode').value.trim(),notes:document.querySelector('#pinNotes').value.trim(),damage:document.querySelector('#pinDamage').value.trim(),...editorClaims(),mapVisibility:editorVisibility()};
+ const updated={...original,address,postcode:document.querySelector('#pinPostcode').value.trim(),notes:document.querySelector('#pinNotes').value.trim(),damage:document.querySelector('#pinDamage').value.trim(),...editorClaims(),...editorPermission(),mapVisibility:editorVisibility()};
  try{persistProperty(original,updated)}catch(e){pinMsg('Could not save in this browser: '+e.message);return}
  render();if(isPropertyIncluded(updated))focusProperty(updated);pinMsg('Street name and property details saved locally. Export CSV to update your Google Sheet.');
 });
@@ -1690,15 +1707,15 @@ document.querySelector('#savePin').addEventListener('click',()=>{
  const chosen=document.querySelector('#pinProperty').value;
  const original=chosen==='new'?null:properties[+chosen];
  const id=original?.id||'M'+Date.now().toString(36).toUpperCase();
- const p={...(original||{}),id,address,postcode,notes:document.querySelector('#pinNotes').value.trim(),damage:document.querySelector('#pinDamage').value.trim(),...editorClaims(),mapVisibility:editorVisibility(),latitude:+loc.lat.toFixed(7),longitude:+loc.lng.toFixed(7),locationSource:'manual'};
+ const p={...(original||{}),id,address,postcode,notes:document.querySelector('#pinNotes').value.trim(),damage:document.querySelector('#pinDamage').value.trim(),...editorClaims(),...editorPermission(),mapVisibility:editorVisibility(),latitude:+loc.lat.toFixed(7),longitude:+loc.lng.toFixed(7),locationSource:'manual'};
  try{persistProperty(original,p)}catch(e){pinMsg('Browser storage failed: '+e.message);return}
  stopPin();render();if(isPropertyIncluded(p))focusProperty(p);
  pinMsg('Pinpoint saved in this browser. Download CSV to back it up and share it.');
 });
 function csvCell(v){const s=String(v??'');return '"'+s.replace(/"/g,'""')+'"'}
 function propertyCsv(){
- const headers=['ID','Address','Postcode','Latitude','Longitude','Notes','Damage','Claim Reported','Claim Result','Photos','Location Source','Map Visibility'];
- const rows=properties.map(p=>[p.id,p.address,p.postcode,p.latitude??'',p.longitude??'',p.notes,p.damage||'',p.claimReported||'',p.claimResult||'',p.photos,p.locationSource||'geocoded',isPropertyIncluded(p)?'Included':'Excluded']);
+ const headers=['ID','Address','Postcode','Latitude','Longitude','Notes','Damage','Claim Reported','Claim Result','Photos','Location Source','Map Visibility','Mapping Permission'];
+ const rows=properties.map(p=>[p.id,p.address,p.postcode,p.latitude??'',p.longitude??'',p.notes,p.damage||'',p.claimReported||'',p.claimResult||'',p.photos,p.locationSource||'geocoded',isPropertyIncluded(p)?'Included':'Excluded',permissionStatus(p)]);
  return '\uFEFF'+[headers,...rows].map(r=>r.map(csvCell).join(',')).join('\r\n');
 }
 function showCsvFallback(csv){
