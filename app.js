@@ -1779,7 +1779,7 @@ document.querySelector('#photoIndexFile').addEventListener('change',async e=>{
 loadPhotoIndex();
 
 // Read-only bridge for the optional analysis panel.
-window.HS2PropertyAnalysis={getProperties:()=>properties,focusProperty:(p)=>focusProperty(p),getVisibleProperties:()=>map.hasLayer(markerLayer)?displayedMarkerProperties.filter(p=>map.getBounds().contains([+p.latitude,+p.longitude])):[],focusProperty:(p)=>focusProperty(p)};
+window.HS2PropertyAnalysis={getProperties:()=>properties,getSummaryProperties:()=>properties.filter(p=>isPropertyIncluded(p)&&hs2PermissionVisible(p)),focusProperty:(p)=>focusProperty(p),getVisibleProperties:()=>map.hasLayer(markerLayer)?displayedMarkerProperties.filter(p=>map.getBounds().contains([+p.latitude,+p.longitude])):[],focusProperty:(p)=>focusProperty(p)};
 map.on("moveend zoomend",()=>document.dispatchEvent(new Event("hs2-map-viewport-updated")));
 map.on("overlayadd overlayremove",()=>document.dispatchEvent(new Event("hs2-map-viewport-updated")));
 document.querySelector("#showHouses")?.addEventListener("change",()=>document.dispatchEvent(new Event("hs2-map-viewport-updated")));

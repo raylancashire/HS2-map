@@ -58,12 +58,12 @@
  function bars(id,rows){const max=Math.max(1,...rows.map(x=>x[1]));$(id).innerHTML=rows.map(([label,n,color])=>`<div class="analysis-bar-row"><span>${escape(label)}</span><div class="analysis-track"><div class="analysis-fill" style="width:${100*n/max}%;background:${color||'#2c709c'}"></div></div><strong>${n}</strong></div>`).join('')}
  function renderVisibleDistance(){
   const api=window.HS2PropertyAnalysis;if(!api)return;
-  const ps=typeof api.getVisibleProperties==='function'?api.getVisibleProperties():api.getProperties();
+  const ps=typeof api.getVisibleProperties==='function'?api.getVisibleProperties():(typeof api.getSummaryProperties==='function'?api.getSummaryProperties():api.getProperties());
   bars('analysisDistance',bands.map(([name,fn,color])=>[name,ps.filter(fn).length,color]));
   const container=$('analysisDistance');
   let count=document.getElementById('analysisVisibleCount');
   if(!count){count=document.createElement('p');count.id='analysisVisibleCount';count.className='analysis-visible-count';container.parentElement.insertBefore(count,container);}
-  count.textContent=`Showing ${ps.length} of ${api.getProperties().length} properties in the current map view`;
+  count.textContent=`Showing ${ps.length} of ${(typeof api.getSummaryProperties==='function'?api.getSummaryProperties():api.getProperties()).length} properties in the current map view`;
  }
  function renderClaims(all){
   const ps=all.filter(item=>!/^(excluded)$/i.test(String(item.mapVisibility||'').trim()));
@@ -105,7 +105,7 @@
  }
  function render(){
   const api=window.HS2PropertyAnalysis;if(!api)return;
-  const ps=api.getProperties();renderClaims(ps);const known=ps.filter(hasDistance);const observed=ps.filter(p=>damageCategory(p)==='Observation recorded');
+  const ps=(typeof api.getSummaryProperties==='function'?api.getSummaryProperties():api.getProperties());renderClaims(ps);const known=ps.filter(hasDistance);const observed=ps.filter(p=>damageCategory(p)==='Observation recorded');
   const stats=[['Properties recorded',ps.length],['Located / measured',known.length],['Observations recorded',observed.length],['Streets',new Set(ps.map(street)).size]];
   $('analysisStats').innerHTML=stats.map(([label,n])=>`<div class="analysis-stat"><strong>${n}</strong><span>${escape(label)}</span></div>`).join('');
   renderVisibleDistance();
