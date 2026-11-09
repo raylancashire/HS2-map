@@ -851,10 +851,10 @@ document.getElementById('hotspotComparison')?.addEventListener('toggle',refreshH
 for(const id of ['incidentRadius','incidentOpacity'])document.getElementById(id)?.addEventListener('input',refreshHotspotComparison);
 function reportedIncident(p){
  const damage=String(p.damage||'').trim();
- return isPropertyIncluded(p)&&isLocalCoordinate(p.latitude,p.longitude)&&!!damage&&!isUnaffected(p);
+ return isPropertyIncluded(p)&&hs2PermissionVisible(p)&&isLocalCoordinate(p.latitude,p.longitude)&&!!damage&&!isUnaffected(p);
 }
 function unaffectedIncident(p){
- return isPropertyIncluded(p)&&isLocalCoordinate(p.latitude,p.longitude)&&isUnaffected(p);
+ return isPropertyIncluded(p)&&hs2PermissionVisible(p)&&isLocalCoordinate(p.latitude,p.longitude)&&isUnaffected(p);
 }
 function refreshIncidentAreas(){
  incidentAreaLayer.clearLayers();
@@ -999,11 +999,14 @@ for(const id of ['showIncidentAreas','incidentRadius','incidentOpacity','inciden
 map.on('zoomend',()=>{if(document.getElementById('showIncidentAreas')?.checked&&document.getElementById('incidentStyle')?.value==='heatmap')refreshIncidentAreas();});
 // Permission values are metadata, not damage classifications.
 function permissionStatus(p){const x=String(p?.mappingPermission||'Not recorded').trim().toLowerCase();return x==='granted'?'Granted':x==='pending'?'Pending':x==='not granted'?'Not granted':'Not recorded'}
+// Hide expressly declined properties from every normal map view.
+// The permission review switch temporarily reveals all records.
+function hs2PermissionVisible(p){return !!document.getElementById('showPermissionIndicators')?.checked || permissionStatus(p)!=='Not granted';}
 const hs2PermissionToggle=document.createElement('label');
 hs2PermissionToggle.style.cssText='display:flex;align-items:center;gap:7px;margin:9px 0';
 hs2PermissionToggle.innerHTML='<input type="checkbox" id="showPermissionIndicators"> Show all recorded properties with permission indicators (administrative view)';
 (document.getElementById('showHouses')?.closest('label')||document.getElementById('showHouses')?.parentElement||document.getElementById('summary')?.parentElement)?.insertAdjacentElement('afterend',hs2PermissionToggle);
-hs2PermissionToggle.title='Administrative review only: this reveals excluded properties and must not be enabled on a public-facing map.';
+hs2PermissionToggle.title='Administrative review only. When off, Not granted properties are hidden from markers, lists and hotspot layers; records remain in the dataset.';
 hs2PermissionToggle.querySelector('input').addEventListener('change',()=>render());
 if(!HS2_PUBLIC_DISPLAY){
  const editor=document.getElementById('pinEditor');
@@ -1038,6 +1041,7 @@ function render(skipList=false){
  measurementLayer.clearLayers();markerLayer.clearLayers();const q=document.querySelector('#search').value.toLowerCase().trim(),filter=document.querySelector('#status').value;
  let visible=0;
  properties.forEach(p=>{
+  if(!hs2PermissionVisible(p))return;
   if(!isPropertyIncluded(p)&&!document.getElementById('showPermissionIndicators')?.checked)return;
   p.distance=isLocalCoordinate(p.latitude,p.longitude)?tunnelDistance(+p.latitude,+p.longitude):NaN;
   p.status=classify(p.distance);
@@ -1120,7 +1124,7 @@ function renderPropertyList(q='',filter='all'){
   }
  }
  const rows=properties.filter(p=>{
-  if(!isPropertyIncluded(p))return false;
+  if(!isPropertyIncluded(p)||!hs2PermissionVisible(p))return false;
   const text=`${p.id} ${p.address} ${p.postcode||''} ${p.damage||''} ${p.notes||''}`.toLowerCase();
   return (!q||text.includes(q))&&(filter==='all'||(filter==='unaffected'&&isUnaffected(p))||(filter==='very-close'&&p.distance<=15)||(filter==='within-30'&&p.distance>15&&p.distance<=30)||(filter==='outside-30'&&p.distance>30));
  });
@@ -1274,7 +1278,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function geocodeOne(p){const query=[p.address,p.postcode,'London','UK'].filter(Boolean).join(', ');const base=cfg.geocoderUrl||'https://nominatim.openstreetmap.org/search';const url=base+'?format=jsonv2&limit=1&countrycodes=gb&q='+encodeURIComponent(query);const res=await fetch(url,{headers:{'Accept':'application/json'}});if(!res.ok)throw Error('Geocoder HTTP '+res.status);const data=await res.json();if(!data.length)return false;const lat=Number(data[0].lat),lon=Number(data[0].lon);if(!isLocalCoordinate(lat,lon))return false;p.latitude=lat;p.longitude=lon;p.geocodeDisplay=data[0].display_name||'';saveGeocodeCache(p);return true}
 async function resolveMissingCoordinates(rows){const missing=rows.filter(p=>!isLocalCoordinate(p.latitude,p.longitude));missing.forEach(readGeocodeCache);const todo=missing.filter(p=>!isLocalCoordinate(p.latitude,p.longitude));if(!todo.length)return {resolved:missing.length,failed:[]};const failed=[];for(let i=0;i<todo.length;i++){const p=todo[i];setDataStatus(`Locating address ${i+1} of ${todo.length}: ${p.address}${p.postcode?' · '+p.postcode:''}…`,'loading');try{if(!await geocodeOne(p))failed.push(p)}catch(e){failed.push(p)}if(i<todo.length-1)await sleep(Math.max(1100,cfg.geocodeDelayMs||1100))}return {resolved:missing.length-failed.length,failed}}
 function isPropertyIncluded(p){return !/^excluded$/i.test(String(p.mapVisibility||'').trim())}
-function validProperties(){return properties.filter(p=>isPropertyIncluded(p)&&isLocalCoordinate(p.latitude,p.longitude))}
+function validProperties(){return properties.filter(p=>isPropertyIncluded(p)&&hs2PermissionVisible(p)&&isLocalCoordinate(p.latitude,p.longitude))}
 function showUnresolved(failed){const el=document.querySelector('#unresolved');if(!failed.length){el.innerHTML='';return}el.innerHTML=`<details open><summary>${failed.length} address${failed.length===1?'':'es'} could not be located</summary><ul>${failed.map(p=>`<li>${esc(p.address)}${p.postcode?' · '+esc(p.postcode):''}</li>`).join('')}</ul><p class=\"hint\">Check the spelling/postcode in the Google Sheet, then click Reload Google Sheet.</p></details>`}
 
 function setDataStatus(message,kind=''){const el=document.querySelector('#dataStatus');el.textContent=message;el.className='data-status '+kind}
