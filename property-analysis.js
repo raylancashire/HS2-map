@@ -106,7 +106,15 @@
  function render(){
   const api=window.HS2PropertyAnalysis;if(!api)return;
   const ps=(typeof api.getSummaryProperties==='function'?api.getSummaryProperties():api.getProperties());renderClaims(ps);const known=ps.filter(hasDistance);const observed=ps.filter(p=>damageCategory(p)==='Observation recorded');
-  const stats=[['Properties recorded',ps.length],['Located / measured',known.length],['Observations recorded',observed.length],['Streets',new Set(ps.map(street)).size]];
+  const administrativeView=!!document.getElementById('showPermissionIndicators')?.checked;
+  const permissionStatus=p=>String(p.mappingPermission??'Not recorded').trim().toLowerCase();
+  const stats=[['Properties recorded',ps.length],['Located / measured',known.length],['Observations recorded',observed.length]];
+  if(administrativeView){
+   stats.push(['Granted',ps.filter(p=>permissionStatus(p)==='granted').length]);
+   stats.push(['Not granted',ps.filter(p=>permissionStatus(p)==='not granted').length]);
+  }else{
+   stats.push(['Streets',new Set(ps.map(street)).size]);
+  }
   $('analysisStats').innerHTML=stats.map(([label,n])=>`<div class="analysis-stat"><strong>${n}</strong><span>${escape(label)}</span></div>`).join('');
   renderVisibleDistance();
   renderStreetReport(ps);
