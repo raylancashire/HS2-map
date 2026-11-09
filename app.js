@@ -173,6 +173,7 @@ function updateHs2HotspotLegend(){
  const style=document.getElementById('incidentStyle');
  const show=!!(enabled?.checked&&layer?.checked&&style?.value==='heatmap');
  el.hidden=!show;
+ el.style.display=show?'':'none';
  el.setAttribute('aria-hidden',String(!show));
  const layered=document.getElementById('incidentDataset')?.value==='layered';
  const both=document.getElementById('incidentDataset')?.value==='both';
@@ -198,7 +199,7 @@ function updateHs2HotspotLegend(){
    secondScale.innerHTML='<div style="font-weight:600;margin:7px 0 3px">Unaffected — density</div><div style="height:11px;border-radius:5px;background:linear-gradient(to right,#f9d5e9,#f39ac9,#e34da7,#b71b82,#85166f,#6b135e)"></div>';
    sidebarScale.insertAdjacentElement('afterend',secondScale);
   }
-  if(secondScale)secondScale.hidden=!layered;
+  if(secondScale){secondScale.hidden=!layered;secondScale.style.display=layered?'':'none';}
   heading.textContent=layered?'Affected — density (lower layer)':both?'Hotspot density — affected & unaffected':unaffected?'Hotspot density — unaffected':'Hotspot density — affected';
   sidebarScale.style.background=''; // Standalone datasets share the original rainbow density key.
  }
@@ -212,7 +213,7 @@ function updateHs2HotspotLegend(){
   layeredKeys.innerHTML='<div><b>Affected (lower)</b><div style="height:10px;border-radius:5px;background:linear-gradient(to right,#3146b8,#00b8e4,#3ad46b,#f5ed43,#ff9327,#d7191c)"></div></div><div><b>Unaffected (upper)</b><div style="height:10px;border-radius:5px;background:linear-gradient(to right,#f9d5e9,#f39ac9,#e34da7,#b71b82,#85166f,#6b135e)"></div></div>';
   el.querySelector('.hs2-density-gradient').insertAdjacentElement('beforebegin',layeredKeys);
  }
- if(layeredKeys)layeredKeys.hidden=!layered;
+ if(layeredKeys){layeredKeys.hidden=!layered;layeredKeys.style.display=layered?'grid':'none';}
  if(layeredKeys&&!layeredKeys.querySelector('.hs2-contour-key'))layeredKeys.insertAdjacentHTML('beforeend','<div class="hs2-contour-key" style="font-size:11px"><span style="color:#c52b35;font-weight:700">━━</span> Affected contour &nbsp; <span style="color:#74206e;font-weight:700">┄┄</span> Unaffected contour (when enabled)</div>');
  const singleGradient=el.querySelector('.hs2-density-gradient');
  if(singleGradient)singleGradient.style.display=layered?'none':'';
