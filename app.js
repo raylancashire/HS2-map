@@ -1065,11 +1065,14 @@ function render(skipList=false){
   m.on('popupclose',()=>{if(!measurementEnabled)measurementLayer.clearLayers();});
   m.on('popupopen',e=>{if(measurementEnabled){m.closePopup();return;}bindEditLocation(e.popup.getElement());bindPhotoButtons(e.popup.getElement());});
  });
- const known=properties.filter(p=>isPropertyIncluded(p)&&Number.isFinite(p.distance)).length;
+ // Summary totals must use the same permission/visibility scope as the map.
+ const summaryProperties=properties.filter(p=>hs2PermissionVisible(p)&&isPropertyIncluded(p));
+ const located=summaryProperties.filter(p=>isLocalCoordinate(p.latitude,p.longitude)).length;
+ const known=summaryProperties.filter(p=>isLocalCoordinate(p.latitude,p.longitude)&&Number.isFinite(tunnelDistance(+p.latitude,+p.longitude))).length;
  const permissionCounts={'Granted':0,'Not granted':0,'Pending':0,'Not recorded':0};
  properties.forEach(p=>{permissionCounts[permissionStatus(p)]++;});
  const permissionSummary=document.getElementById('showPermissionIndicators')?.checked?`<div class="hs2-permission-summary" style="margin-top:9px;padding-top:8px;border-top:1px solid #d4dce5"><strong>Property mapping permission — all ${properties.length} records</strong><br><span style="color:#16834b">✓ Granted: ${permissionCounts['Granted']}</span> · <span style="color:#b42318">× Not granted: ${permissionCounts['Not granted']}</span><br><span style="color:#64748b">? Pending: ${permissionCounts['Pending']}</span> · Not recorded: ${permissionCounts['Not recorded']}</div>`:'';
- document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${properties.length}<br>Located: ${validProperties().length} · Unresolved: ${properties.length-validProperties().length}<br>Estimated tunnel distances: ${known} · Unavailable: ${properties.length-known}${permissionSummary}`;
+ document.querySelector('#summary').innerHTML=`<b>${visible}</b> shown of ${summaryProperties.length}<br>Located: ${located} · Unresolved: ${summaryProperties.length-located}<br>Estimated tunnel distances: ${known} · Unavailable: ${summaryProperties.length-known}${permissionSummary}`;
  refreshIncidentAreas();
  if(!skipList)renderPropertyList(q,filter);
  refreshPinOptions();
