@@ -1,0 +1,9 @@
+monitor_id,monitor_type,area,worksite,location,address,source_coordinates,period,source_file,source_row,reason
+V060,Vibration,Camden,Utilities (UN),"Prankerd House Basement, North Gower St",,529521E 529521N,August 2026,HS2_Noise_Data_AreaSouth_Camden_August_2026.xlsx,47,Coordinate inconsistent with stated area; not guessed or corrected
+CLE-N1,Noise,North Warwickshire,Church Lane Embankment (CLE),"Highfields Cottage, Middleton, North Warwickshire, England, B78 2AL",,"298365E, 418114N",August 2026,HS2_Noise_Data_AreaNorth_North_Warwickshire_August_2026.xlsx,7,Coordinate inconsistent with stated area; not guessed or corrected
+LT-N1,Noise,WestNorthhampshire,Lower Thorpe (LT),"Thorpe Mandeville, Banbury",,"453553N, 245334E",August 2026,HS2_Noise_Data_AreaCentral_WestNorthhampshire_August_2026.xlsx,11,Coordinate format requires checking
+GW-N1,Noise,WestNorthhampshire,Greatworth (GW),"Helmdon Road, Greatworth",,"455551N, 242992E",August 2026,HS2_Noise_Data_AreaCentral_WestNorthhampshire_August_2026.xlsx,12,Coordinate format requires checking
+GW-N2,Noise,WestNorthhampshire,Greatworth (GW),"Greatworth Hall, Greatworth",,"456179N, 242763E",August 2026,HS2_Noise_Data_AreaCentral_WestNorthhampshire_August_2026.xlsx,13,Coordinate format requires checking
+RA-N1,Noise,WestNorthhampshire,Radstone (RA),"Radstone Road, Brackley",,"458713N, 240454E",August 2026,HS2_Noise_Data_AreaCentral_WestNorthhampshire_August_2026.xlsx,14,Coordinate format requires checking
+HF-N1,Noise,WestNorthhampshire,Hall Farm (HF),"Hall Farm, Brackley",,"412097N, 239493E",August 2026,HS2_Noise_Data_AreaCentral_WestNorthhampshire_August_2026.xlsx,15,Coordinate format requires checking
+A38SSRR-N1,Noise,Lichfield,A38 Southbound Slip Road Realignment (A38SSRR),"Thompson Way, Streethay, Lichfield, WS13 8LT",,"439842E , 385391N",August 2026,HS2_Noise_Data_AreaNorth_Lichfield_August_2026.xlsx,9,Coordinate inconsistent with stated area; not guessed or corrected
